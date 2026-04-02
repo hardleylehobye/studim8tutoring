@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Student Dashboard - StudiM8 Tutoring</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module">
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    window.FirebaseModular = {
+      initializeApp,
+      getApp,
+      getApps,
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged,
+      signOut,
+      setPersistence,
+      browserLocalPersistence,
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      collection,
+      query,
+      where,
+      getDocs,
+      updateDoc,
+      deleteDoc,
+      arrayUnion
+    };
+  </script>
+  <style>
+    .student-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .student-header {
+      background: var(--color-surface-tint);
+      color: var(--color-text);
+      padding: 40px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sections-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+    .section { background: #fff; padding: 25px; border-radius: 12px; border: 1px solid var(--color-surface-tint-2); }
+    .section-title { font-size: 1.5rem; margin-bottom: 20px; color: var(--color-primary); border-bottom: 2px solid var(--color-primary-mid); padding-bottom: 10px; }
+    .session-card { border: 1px solid var(--color-surface-tint-2); border-radius: 8px; padding: 20px; margin-bottom: 15px; }
+    .session-status { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+    .status-pending { background: #fffbe6; color: #b8860b; }
+    .status-pending-verification { background: #fff8e1; color: #e65100; }
+    .status-pending-payment { background: #e3f2fd; color: #1565c0; }
+    .status-scheduled { background: var(--color-surface-tint); color: var(--color-primary); }
+    .status-confirmed { background: #f1f8e9; color: #222222; }
+    .payment-btn { background: var(--color-primary-mid); color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+    .booking-btn { background: var(--color-primary); color: #fff; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 20px; transition: background 0.15s; }
+    .booking-btn:hover { background: var(--color-accent-bright); color: var(--color-text); }
+    .logout-btn { background: var(--color-accent); color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+    .loading { text-align: center; padding: 40px; color: #888888; }
+    .no-data { text-align: center; padding: 40px; color: #888888; background: #f8f9fa; border-radius: 8px; }
+    .payment-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; }
+    .payment-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+    .payment-option { padding: 15px; border: 2px solid var(--color-surface-tint-2); border-radius: 8px; cursor: pointer; text-align: center; }
+    .payment-option:hover { border-color: var(--color-primary-mid); }
+    .payment-option.selected { border-color: var(--color-accent); background: #f1f8e9; }
+    @media (max-width: 768px) { .sections-grid { grid-template-columns: 1fr; } }
+    .student-dashboard .dash-details { border-color: var(--color-surface-tint-2); }
+    .student-dashboard .dash-details > summary { color: var(--color-primary); }
+    .session-request-tutor-wrap {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .session-request-tutor-btn {
+      background: #64748b;
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      width: 100%;
+      max-width: 22rem;
+    }
+    .session-request-tutor-btn:hover { background: #475569; }
+    .session-request-tutor-hint {
+      color: #64748b;
+      font-size: 0.85rem;
+      display: block;
+      margin-top: 8px;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="index.html" class="navbar-logo-link" aria-label="StudiM8 home">
+        <img src="Logo.jpeg" alt="" width="200" height="52" class="site-logo" decoding="async" />
+      </a>
+      <span class="navbar-logo-text">StudiM8 Student</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="student.html">Dashboard</a></li>
+      <li><a href="oneonone.html">Book Lesson</a></li>
+      <li><a href="login.html?next=student.html" id="google-login-btn" class="nav-login-link">Log in</a></li>
+      <li><button id="logout-btn" class="logout-btn" style="display:none;">Logout</button></li>
+    </ul>
+  </nav>
+
+  <div class="student-container student-dashboard" id="dashboard-content" style="display:none;">
+    <div class="student-header">
+      <h1>Student Dashboard</h1>
+      <p id="welcome-message">Welcome back!</p>
+    </div>
+
+    <details class="dash-details" style="margin-bottom:24px;background:var(--color-surface-tint);border-color:var(--color-surface-tint-2);">
+      <summary>General queries — StudiM8 WhatsApp &amp; phone (tap to open)</summary>
+      <div class="dash-details-body">
+        <p style="color:#334155;line-height:1.6;margin:0 0 12px 0;">Use these for <strong>general queries</strong> about your booking, lessons, or StudiM8 — WhatsApp or call us anytime.</p>
+        <ul style="margin:0;padding-left:1.25rem;line-height:1.75;color:#334155;">
+          <li><strong>StudiM8 WhatsApp:</strong> <a href="https://wa.me/27826518685" target="_blank" rel="noopener noreferrer" style="color:var(--color-link);">+27 82 651 8685</a></li>
+          <li><strong>Call StudiM8:</strong> <a href="tel:+27826518685" style="color:var(--color-link);">+27 82 651 8685</a></li>
+        </ul>
+      </div>
+    </details>
+
+    <div class="sections-grid">
+      <!-- Profile Section -->
+      <div class="section">
+        <h2 class="section-title">My Profile</h2>
+        <div id="profile-loading" class="loading">Loading profile...</div>
+        <div id="profile-content" style="display: none;">
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 5px 0;"><strong>Name:</strong> <span id="profile-name">-</span></p>
+            <p style="margin: 5px 0;"><strong>Email:</strong> <span id="profile-email">-</span></p>
+            <p style="margin: 5px 0;"><strong>Phone:</strong> <span id="profile-phone">Not provided</span></p>
+          </div>
+          <div style="border-top: 1px solid #eee; padding-top: 15px;">
+            <h4 style="margin-bottom: 10px; color: var(--color-primary);">Update Phone Number</h4>
+            <div style="display: flex; gap: 10px; align-items: end;">
+              <div style="flex: 1;">
+                <input type="tel" id="phone-input" placeholder="Enter phone number" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <small style="color: #666; font-size: 0.8rem;">e.g., 0821234567</small>
+              </div>
+              <button onclick="updatePhoneNumber()" style="background: var(--color-primary-mid); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Update</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Status -->
+      <div class="section">
+        <h2 class="section-title">Payment Status</h2>
+        <div id="payments-loading" class="loading">Loading payment information...</div>
+        <div id="payments-list" style="display: none;"></div>
+        <div id="no-payments" class="no-data" style="display: none;">
+          <p>No payment records found.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sections-grid">
+      <!-- My Sessions -->
+      <div class="section">
+        <h2 class="section-title">My Sessions</h2>
+        <div id="sessions-loading" class="loading">Loading your sessions...</div>
+        <div id="sessions-list" style="display: none;"></div>
+        <div id="no-sessions" class="no-data" style="display: none;">
+          <p>No sessions booked yet.</p>
+          <a href="oneonone.html" class="booking-btn">Book Your First Lesson</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="section">
+      <h2 class="section-title">Quick Actions</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        <a href="oneonone.html" class="booking-btn">Book New Service</a>
+        <a href="oneonone.html?service=one-on-one-online&changeTutor=1" class="booking-btn" style="background:#6c757d;">Request Tutor Change</a>
+        <button onclick="refreshData()" class="booking-btn" style="background: #17a2b8;">Refresh Data</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div id="payment-modal" class="payment-modal">
+    <div class="modal-content">
+      <h3>Complete Payment</h3>
+      <p id="payment-details"></p>
+      <div class="payment-methods">
+        <div class="payment-option" data-method="card">
+          <h4>Credit/Debit Card</h4>
+          <p>Pay with Visa, Mastercard, etc.</p>
+        </div>
+        <div class="payment-option" data-method="eft">
+          <h4>EFT Transfer</h4>
+          <p>Direct bank transfer</p>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 20px;">
+        <button onclick="closePaymentModal()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; margin-right: 10px; cursor: pointer;">Cancel</button>
+        <button onclick="processPayment()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Process Payment</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfVCzrNcCfhAUp9EONWptvpKNOA8lZoL0",
+      authDomain: "studim8tutoring-bba8e.firebaseapp.com",
+      databaseURL: "https://studim8tutoring-bba8e-default-rtdb.firebaseio.com",
+      projectId: "studim8tutoring-bba8e",
+      storageBucket: "studim8tutoring-bba8e.firebasestorage.app",
+      messagingSenderId: "408589098560",
+      appId: "1:408589098560:web:c3231011730217b3f089a5",
+      measurementId: "G-3839D00B6F"
+    };
+    let app;
+    let auth;
+    let db;
+    let studentAuthRedirectTimer = null;
+
+    const studentConfig = { currentUser: null, sessions: [], payments: [] };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeFirebaseAndAuth();
+    });
+
+    function initializeFirebaseAndAuth() {
+      if (!window.FirebaseModular) {
+        // Wait for the module script in <head> to populate Firebase helpers.
+        setTimeout(initializeFirebaseAndAuth, 50);
+        return;
+      }
+
+      app = window.FirebaseModular.getApps().length
+        ? window.FirebaseModular.getApp()
+        : window.FirebaseModular.initializeApp(firebaseConfig);
+      auth = window.FirebaseModular.getAuth(app);
+      db = window.FirebaseModular.getFirestore(app);
+      window.FirebaseModular.setPersistence(auth, window.FirebaseModular.browserLocalPersistence).catch(() => {});
+      checkAuthState();
+    }
+
+    function checkAuthState() {
+      window.FirebaseModular.onAuthStateChanged(auth, async (user) => {
+        if (studentAuthRedirectTimer) {
+          clearTimeout(studentAuthRedirectTimer);
+          studentAuthRedirectTimer = null;
+        }
+        if (user) {
+          try {
+            const userDoc = await window.FirebaseModular.getDoc(
+              window.FirebaseModular.doc(db, 'users', user.uid)
+            );
+            const role = userDoc.exists() ? userDoc.data().role : 'student';
+            if (role === 'admin') {
+              window.location.replace('admin.html');
+              return;
+            }
+            if (role === 'tutor') {
+              window.location.replace('tutor.html');
+              return;
+            }
+          } catch (e) {
+            console.error('Role check failed:', e);
+          }
+          studentConfig.currentUser = user;
+          document.getElementById('dashboard-content').style.display = 'block';
+          document.getElementById('google-login-btn').style.display = 'none';
+          document.getElementById('logout-btn').style.display = 'inline-block';
+          document.getElementById('welcome-message').textContent = `Welcome, ${user.displayName}!`;
+          await loadStudentData();
+        } else {
+          document.getElementById('dashboard-content').style.display = 'none';
+          document.getElementById('google-login-btn').style.display = 'inline-flex';
+          document.getElementById('logout-btn').style.display = 'none';
+          studentAuthRedirectTimer = setTimeout(() => {
+            studentAuthRedirectTimer = null;
+            if (!auth.currentUser) {
+              window.location.href = 'login.html?next=student.html';
+            }
+          }, 750);
+        }
+      });
+    }
+
+    async function loadStudentData() {
+      await Promise.all([loadProfile(), loadSessions(), loadPayments()]);
+    }
+
+    async function loadProfile() {
+      try {
+        const userDoc = await window.FirebaseModular.getDoc(window.FirebaseModular.doc(db, 'users', studentConfig.currentUser.uid));
+        const userData = userDoc.data() || {};
+        
+        // Update profile display
+        document.getElementById('profile-name').textContent = studentConfig.currentUser.displayName || 'Not provided';
+        document.getElementById('profile-email').textContent = studentConfig.currentUser.email || 'Not provided';
+        document.getElementById('profile-phone').textContent = userData.phone || 'Not provided';
+        
+        // Set phone input value if phone exists
+        if (userData.phone) {
+          document.getElementById('phone-input').value = userData.phone;
+        }
+        
+        document.getElementById('profile-loading').style.display = 'none';
+        document.getElementById('profile-content').style.display = 'block';
+        
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        document.getElementById('profile-loading').textContent = 'Error loading profile';
+      }
+    }
+
+    async function updatePhoneNumber() {
+      const phoneInput = document.getElementById('phone-input');
+      const phoneNumber = phoneInput.value.trim();
+      
+      if (!phoneNumber) {
+        alert('Please enter a phone number');
+        return;
+      }
+      
+      // Basic phone number validation (South African format)
+      if (!/^0[0-9]{9}$/.test(phoneNumber)) {
+        alert('Please enter a valid South African phone number (e.g., 0821234567)');
+        return;
+      }
+      
+      try {
+        // Update user document in Firestore
+        await window.FirebaseModular.setDoc(window.FirebaseModular.doc(db, 'users', studentConfig.currentUser.uid), {
+          phone: phoneNumber,
+          phoneUpdatedAt: new Date().toISOString()
+        }, { merge: true });
+        
+        // Update display
+        document.getElementById('profile-phone').textContent = phoneNumber;
+        
+        alert('Phone number updated successfully!');
+      } catch (error) {
+        console.error('Error updating phone number:', error);
+        alert('Error updating phone number. Please try again.');
+      }
+    }
+
+    async function loadSessions() {
+      try {
+        // Simple query without complex ordering to avoid index requirement
+        const sessionsQuery = window.FirebaseModular.query(
+          window.FirebaseModular.collection(db, 'sessions'),
+          window.FirebaseModular.where('studentId', '==', studentConfig.currentUser.uid)
+        );
+        const snapshot = await window.FirebaseModular.getDocs(sessionsQuery);
+        
+        studentConfig.sessions = [];
+        snapshot.forEach(docSnap => {
+          studentConfig.sessions.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        
+        // Sort sessions client-side by creation date
+        studentConfig.sessions.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return dateB - dateA; // Newest first
+        });
+        
+        displaySessions();
+      } catch (error) {
+        console.error('Error loading sessions:', error);
+        document.getElementById('sessions-loading').textContent = 'Error loading sessions';
+      }
+    }
+
+    function displaySessions() {
+      const container = document.getElementById('sessions-list');
+      const loading = document.getElementById('sessions-loading');
+      const noData = document.getElementById('no-sessions');
+      
+      loading.style.display = 'none';
+      
+      if (studentConfig.sessions.length === 0) {
+        container.style.display = 'none';
+        noData.style.display = 'block';
+      } else {
+        noData.style.display = 'none';
+        container.style.display = 'block';
+        container.innerHTML = '';
+        
+        studentConfig.sessions.forEach(session => {
+          const card = createSessionCard(session);
+          container.appendChild(card);
+        });
+      }
+    }
+
+    function escapeHtmlStudent(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function telHrefFromSaPhone(phoneStr) {
+      if (!phoneStr) return '#';
+      let d = String(phoneStr).replace(/\D/g, '');
+      if (d.startsWith('0') && d.length === 10) d = '27' + d.slice(1);
+      return 'tel:+' + d;
+    }
+
+    /** Shown when a tutor is assigned and payment is still due. */
+    function renderTutorContactBlock(session) {
+      const phone = (session.tutorPhone || '').trim();
+      const waDigits = (session.tutorWhatsAppDigits || '').trim();
+      let body;
+      if (!phone && !waDigits) {
+        body = `
+          <div style="padding:10px 12px;background:#fffbeb;border-radius:8px;border:1px solid #fcd34d;font-size:0.88rem;color:#78350f;">
+            <strong>Tutor assigned.</strong> Your tutor’s number will show here once they add it in their profile and StudiM8 syncs this booking (or ask StudiM8 for their contact).
+          </div>`;
+      } else {
+        let inner = '<strong style="color:#166534;">Contact your tutor</strong> — say hi on WhatsApp or call before you pay if you want to check you’re a good match.<br>';
+        if (phone) {
+          inner += `📞 Call: <a href="${telHrefFromSaPhone(phone)}">${escapeHtmlStudent(phone)}</a>`;
+        }
+        if (waDigits) {
+          if (phone) inner += '<br>';
+          inner += `💬 WhatsApp: <a href="https://wa.me/${waDigits}" target="_blank" rel="noopener noreferrer">Open chat</a>`;
+        }
+        body = `
+          <div style="padding:12px 14px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac;font-size:0.9rem;line-height:1.5;color:#14532d;">
+            ${inner}
+          </div>`;
+      }
+      return `
+        <details class="dash-details" style="margin-top:12px;">
+          <summary>Contact tutor</summary>
+          <div class="dash-details-body">${body}</div>
+        </details>`;
+    }
+
+    function sessionMeetingAddressBlock(session) {
+      const addr = (session.physicalAddress || '').trim();
+      if (!addr) return '';
+      const manual = session.physicalAddressManual
+        ? ' <span style="color:#b45309;font-size:0.85rem;">(as you entered it)</span>'
+        : '';
+      return `
+        <details class="dash-details" style="margin-top:10px;">
+          <summary>Meeting address</summary>
+          <div class="dash-details-body">
+            <p style="margin:0;line-height:1.5;color:#333;">${escapeHtmlStudent(addr)}${manual}</p>
+          </div>
+        </details>`;
+    }
+
+    function renderRequestNewTutorButton(sessionId) {
+      return `
+        <div class="session-request-tutor-wrap">
+          <button type="button" class="session-request-tutor-btn" onclick="requestDifferentTutor('${sessionId}')">Send back for new tutor assignment</button>
+          <span class="session-request-tutor-hint">Returns this booking to <strong>pending verification</strong>. StudiM8 will assign someone else — the previous tutor won’t be picked again for this session.</span>
+        </div>`;
+    }
+
+    async function requestDifferentTutor(sessionId) {
+      const session = studentConfig.sessions.find((s) => s.id === sessionId);
+      if (!session || !session.tutorId || session.paid) return;
+      const st = session.status || '';
+      if (!['pending_payment', 'confirmed', 'scheduled'].includes(st)) return;
+      if (
+        !confirm(
+          'Send this booking back to StudiM8 for a new tutor?\n\nYou won’t be able to pay until someone else is assigned. Continue?'
+        )
+      ) {
+        return;
+      }
+      try {
+        await window.FirebaseModular.updateDoc(window.FirebaseModular.doc(db, 'sessions', sessionId), {
+          status: 'pending_verification',
+          tutorId: null,
+          tutorName: null,
+          tutorPhone: null,
+          tutorWhatsAppDigits: null,
+          tutorContactSyncedAt: null,
+          verifiedAt: null,
+          verifiedByAdminId: null,
+          excludedTutorIds: window.FirebaseModular.arrayUnion(session.tutorId),
+          tutorChangeRequestedAt: new Date().toISOString()
+        });
+        await loadStudentData();
+        alert('Done. Your booking is pending verification again — StudiM8 will assign a different tutor.');
+      } catch (e) {
+        console.error(e);
+        alert('Could not update your booking. Try again or contact StudiM8.');
+      }
+    }
+
+    function sessionStatusClass(status) {
+      const s = status || 'pending';
+      if (s === 'pending') return 'status-pending-verification';
+      const normalized = String(s).replace(/_/g, '-');
+      return `status-${normalized}`;
+    }
+
+    function formatLessonWhen(session) {
+      if (session.preferredDate && session.startTime && session.endTime) {
+        return formatScheduleDisplay(session);
+      }
+      if (session.lessonStartDate && session.lessonEndDate) {
+        return `${session.lessonStartDate} → ${session.lessonEndDate}`;
+      }
+      return '';
+    }
+
+    function createSessionCard(session) {
+      const card = document.createElement('div');
+      card.className = 'session-card';
+
+      const st = session.status || 'pending';
+      const awaitingVerification = st === 'pending_verification' || st === 'pending';
+      const paymentStatus = session.paid
+        ? 'Paid'
+        : awaitingVerification
+          ? 'After verification'
+          : 'Due — complete payment';
+
+      const needsPayment =
+        !session.paid &&
+        (st === 'pending_payment' || st === 'confirmed');
+
+      const canRequestNewTutor =
+        !session.paid &&
+        session.tutorId &&
+        (st === 'pending_payment' || st === 'confirmed' || st === 'scheduled');
+
+      const statusClass = sessionStatusClass(st);
+      const lessonWhen = formatLessonWhen(session);
+      const tutorLine =
+        session.tutorName || session.preferredTutor
+          ? (session.tutorName || session.preferredTutor)
+          : awaitingVerification
+            ? 'Assigned after verification'
+            : 'To be confirmed';
+
+      card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+          <div>
+            <h4>${session.serviceType ? session.serviceType + ' · ' : ''}${session.subject || 'Subject'}</h4>
+            <p style="margin: 5px 0; color: #666;">Grade ${session.grade || 'N/A'}</p>
+            <p style="margin: 5px 0; color: #666;">Tutor: ${tutorLine}</p>
+            ${lessonWhen ? `<p style="margin: 5px 0; color: #666;"><strong>Lesson:</strong> ${lessonWhen}</p>` : ''}
+            ${sessionMeetingAddressBlock(session)}
+          </div>
+          <span class="session-status ${statusClass}">${getStatusLabel(st)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <p style="margin: 5px 0;"><strong>Payment:</strong> ${paymentStatus}</p>
+            <p style="margin: 5px 0;"><strong>Booked:</strong> ${new Date(session.createdAt).toLocaleDateString()}</p>
+            ${needsPayment ? '<p style="margin: 5px 0; color: #dc3545;"><strong>Payment required</strong></p>' : ''}
+          </div>
+          ${needsPayment
+            ? `<button onclick="openPaymentModal('${session.id}')" class="payment-btn" style="background: #dc3545;">Pay now</button>`
+            : awaitingVerification && !session.paid
+              ? `<button onclick="cancelBooking('${session.id}')" class="payment-btn" style="background: #6c757d;">Cancel request</button>`
+              : ''
+          }
+        </div>
+        ${canRequestNewTutor ? renderTutorContactBlock(session) + renderRequestNewTutorButton(session.id) : ''}
+      `;
+
+      return card;
+    }
+
+    // Format schedule display
+    function formatScheduleDisplay(session) {
+      if (session.preferredDate && session.startTime && session.endTime) {
+        const date = new Date(session.preferredDate);
+        const dateStr = date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        
+        const formatTime = (time24) => {
+          const [hours, minutes] = time24.split(':');
+          const hour = parseInt(hours);
+          const ampm = hour >= 12 ? 'PM' : 'AM';
+          const hour12 = hour % 12 || 12;
+          return `${hour12}:${minutes} ${ampm}`;
+        };
+        
+        const startTime12 = formatTime(session.startTime);
+        const endTime12 = formatTime(session.endTime);
+        
+        return `${dateStr}, ${startTime12} - ${endTime12}`;
+      }
+      return 'Not specified';
+    }
+
+    // Get status label
+    function getStatusLabel(status) {
+      switch (status) {
+        case 'pending':
+        case 'pending_verification':
+          return 'Pending verification';
+        case 'pending_payment':
+          return 'Pending payment';
+        case 'scheduled':
+          return 'Scheduled';
+        case 'confirmed':
+          return 'Confirmed';
+        default:
+          return status ? String(status).replace(/_/g, ' ') : 'Pending';
+      }
+    }
+
+    // Cancel booking function
+    async function cancelBooking(sessionId) {
+      if (confirm('Are you sure you want to cancel this booking?')) {
+        try {
+          await window.FirebaseModular.deleteDoc(window.FirebaseModular.doc(db, 'sessions', sessionId));
+          await loadStudentData();
+          alert('Booking cancelled successfully');
+        } catch (error) {
+          console.error('Error cancelling booking:', error);
+          alert('Error cancelling booking. Please try again.');
+        }
+      }
+    }
+
+    async function loadPayments() {
+      try {
+        document.getElementById('payments-loading').style.display = 'block';
+        document.getElementById('payments-list').style.display = 'none';
+        document.getElementById('no-payments').style.display = 'none';
+        
+        // For demo, show payment status from sessions
+        const paidSessions = studentConfig.sessions.filter(s => s.paid);
+        const unpaidSessions = studentConfig.sessions.filter(s => !s.paid);
+        
+        document.getElementById('payments-loading').style.display = 'none';
+        
+        if (studentConfig.sessions.length === 0) {
+          document.getElementById('no-payments').style.display = 'block';
+        } else {
+          document.getElementById('payments-list').style.display = 'block';
+          document.getElementById('payments-list').innerHTML = `
+            <div style="padding: 20px; background: #f8f9fa; border-radius: 8px;">
+              <h4>Payment Summary</h4>
+              <p style="margin: 10px 0;">Paid Sessions: <strong>${paidSessions.length}</strong></p>
+              <p style="margin: 10px 0;">Pending Payments: <strong>${unpaidSessions.length}</strong></p>
+              <p style="margin: 10px 0;">Total Sessions: <strong>${studentConfig.sessions.length}</strong></p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading payments:', error);
+        document.getElementById('payments-loading').textContent = 'Error loading payments';
+      }
+    }
+
+    function openPaymentModal(sessionId) {
+      const session = studentConfig.sessions.find(s => s.id === sessionId);
+      if (session) {
+        const phone = (session.tutorPhone || '').trim();
+        const wa = (session.tutorWhatsAppDigits || '').trim();
+        let tutorContactLines = '';
+        if (phone) {
+          tutorContactLines += `<br><strong>Tutor phone:</strong> <a href="${telHrefFromSaPhone(phone)}">${escapeHtmlStudent(phone)}</a>`;
+        }
+        if (wa) {
+          tutorContactLines += `<br><strong>WhatsApp:</strong> <a href="https://wa.me/${wa}" target="_blank" rel="noopener noreferrer">Message tutor</a>`;
+        }
+        if (!phone && !wa && session.tutorId) {
+          tutorContactLines = '<br><em style="color:#666;">Tutor number not on file yet — ask StudiM8 or refresh after admin syncs.</em>';
+        }
+        document.getElementById('payment-details').innerHTML = `
+          <strong>Session:</strong> ${escapeHtmlStudent(session.subject)}<br>
+          <strong>Tutor:</strong> ${escapeHtmlStudent(session.tutorName || '')}${tutorContactLines}<br>
+          <strong>Amount:</strong> R250 per hour<br>
+          <strong>Status:</strong> ${escapeHtmlStudent(session.status)}
+        `;
+        document.getElementById('payment-modal').style.display = 'block';
+        
+        // Store session ID for payment processing
+        document.getElementById('payment-modal').dataset.sessionId = sessionId;
+      }
+    }
+
+    function closePaymentModal() {
+      document.getElementById('payment-modal').style.display = 'none';
+    }
+
+    async function processPayment() {
+      const sessionId = document.getElementById('payment-modal').dataset.sessionId;
+      
+      try {
+        await window.FirebaseModular.updateDoc(window.FirebaseModular.doc(db, 'sessions', sessionId), {
+          paid: true,
+          paidAt: new Date().toISOString(),
+          paymentMethod: 'card' // or 'eft' based on selection
+        });
+        
+        closePaymentModal();
+        await loadStudentData(); // Refresh data
+        alert('Payment processed successfully!');
+      } catch (error) {
+        console.error('Error processing payment:', error);
+        alert('Error processing payment. Please try again.');
+      }
+    }
+
+    function refreshData() {
+      loadStudentData();
+    }
+
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', function() {
+      window.FirebaseModular.signOut(auth).then(() => window.location.href = 'index.html');
+    });
+
+    // Payment method selection
+    document.querySelectorAll('.payment-option').forEach(option => {
+      option.addEventListener('click', function() {
+        document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
+        this.classList.add('selected');
+      });
+    });
+  </script>
+</body>
+</html>

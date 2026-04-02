@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function userRole() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function isAdmin() {
+      return request.auth != null && userRole() == 'admin';
+    }
+
+    function isSessionTutor() {
+      return request.auth != null &&
+        userRole() == 'tutor' &&
+        resource.data.tutorId == request.auth.uid;
+    }
+
+    /** Booking fields students cannot change when updating their session. */
+    function sessionBookingCoreUnchanged() {
+      return request.resource.data.studentId == resource.data.studentId &&
+        request.resource.data.subject == resource.data.subject &&
+        request.resource.data.serviceType == resource.data.serviceType &&
+        request.resource.data.grade == resource.data.grade &&
+        request.resource.data.preferredDate == resource.data.preferredDate &&
+        request.resource.data.startTime == resource.data.startTime &&
+        request.resource.data.endTime == resource.data.endTime &&
+        request.resource.data.learningGoals == resource.data.learningGoals &&
+        request.resource.data.physicalAddress == resource.data.physicalAddress &&
+        request.resource.data.physicalAddressLat == resource.data.physicalAddressLat &&
+        request.resource.data.physicalAddressLng == resource.data.physicalAddressLng &&
+        request.resource.data.physicalAddressManual == resource.data.physicalAddressManual &&
+        request.resource.data.studentName == resource.data.studentName &&
+        request.resource.data.studentEmail == resource.data.studentEmail &&
+        request.resource.data.neededBy == resource.data.neededBy &&
+        request.resource.data.tutorGenderPreference == resource.data.tutorGenderPreference &&
+        request.resource.data.preferredTutor == resource.data.preferredTutor &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.requestedAt == resource.data.requestedAt &&
+        request.resource.data.get('reusePreviousTutor', null) == resource.data.get('reusePreviousTutor', null) &&
+        request.resource.data.get('previousTutorId', null) == resource.data.get('previousTutorId', null) &&
+        request.resource.data.get('previousTutorName', null) == resource.data.get('previousTutorName', null) &&
+        request.resource.data.get('requiresTutorAssignment', null) == resource.data.get('requiresTutorAssignment', null);
+    }
+
+    function tutorSessionUpdateAllowed() {
+      return sessionBookingCoreUnchanged() &&
+        request.resource.data.tutorId == resource.data.tutorId &&
+        request.resource.data.paid == resource.data.paid &&
+        request.resource.data.status == 'confirmed' &&
+        resource.data.diff(request.resource.data).affectedKeys()
+          .hasOnly(['status', 'confirmedAt', 'confirmedBy']);
+    }
+
+    function studentSessionMarkPaid() {
+      return resource.data.studentId == request.auth.uid &&
+        sessionBookingCoreUnchanged() &&
+        resource.data.paid != true &&
+        request.resource.data.paid == true &&
+        resource.data.status in ['pending_payment', 'confirmed', 'scheduled'] &&
+        request.resource.data.tutorId == resource.data.tutorId &&
+        request.resource.data.status == resource.data.status &&
+        resource.data.diff(request.resource.data).affectedKeys()
+          .hasOnly(['paid', 'paidAt', 'paymentMethod']);
+    }
+
+    function studentSessionTutorReset() {
+      return resource.data.studentId == request.auth.uid &&
+        sessionBookingCoreUnchanged() &&
+        resource.data.paid != true &&
+        request.resource.data.paid == resource.data.paid &&
+        resource.data.tutorId != null &&
+        resource.data.status in ['pending_payment', 'confirmed', 'scheduled'] &&
+        request.resource.data.status == 'pending_verification' &&
+        request.resource.data.tutorId == null &&
+        request.resource.data.tutorName == null &&
+        resource.data.tutorId in request.resource.data.excludedTutorIds;
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null && (
+        userId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+      allow create: if request.auth != null && userId == request.auth.uid;
+      allow update: if request.auth != null && (
+        userId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+      allow delete: if request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /tutorProfiles/{tutorId} {
+      allow read: if request.auth != null && (
+        tutorId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+      allow write: if request.auth != null && (
+        tutorId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if request.auth != null && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        resource.data.studentId == request.auth.uid ||
+        resource.data.tutorId == request.auth.uid
+      );
+      allow create: if request.auth != null &&
+        request.resource.data.studentId == request.auth.uid;
+      allow update: if request.auth != null && (
+        isAdmin() ||
+        (isSessionTutor() && tutorSessionUpdateAllowed()) ||
+        studentSessionTutorReset() ||
+        studentSessionMarkPaid()
+      );
+      allow delete: if request.auth != null && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        resource.data.studentId == request.auth.uid
+      );
+    }
+  }
+}

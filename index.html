@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>StudiM8 Tutoring</title>
+  <link rel="icon" href="Logo.jpeg" type="image/jpeg" />
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase JS SDKs (modular ES modules) are loaded in the login script below. -->
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="index.html" class="navbar-logo-link" aria-label="StudiM8 home">
+        <img src="Logo.jpeg" alt="" width="200" height="52" class="site-logo" decoding="async" />
+      </a>
+      <span class="navbar-logo-text">StudiM8 Tutoring</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="services.html">All Services</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="login.html" id="nav-login-link" class="nav-login-link">Log in</a></li>
+      <li id="nav-auth-root" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+        <span id="nav-logged-in" style="display:none;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          <span id="nav-user-label" style="font-size:0.95rem;color:#333;max-width:10rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title=""></span>
+          <button type="button" id="nav-dashboard-btn" style="background:#4285F4;color:#fff;border:none;padding:0.5rem 1.2rem;border-radius:4px;cursor:pointer;font-size:1rem;">My dashboard</button>
+          <button type="button" id="nav-logout-btn" style="background:var(--color-accent);color:#fff;border:none;padding:0.5rem 1.2rem;border-radius:4px;cursor:pointer;font-size:1rem;">Logout</button>
+        </span>
+      </li>
+    </ul>
+  </nav>
+
+  <header class="hero">
+    <h1>Your Study Partners for Success.</h1>
+    <p>Join a supportive learning community building stronger marks, better confidence, and a brighter future — one lesson at a time.</p>
+    <a class="cta-btn" href="services.html">View All Services</a>
+  </header>
+  <section class="services">
+    <h2>Our Services</h2>
+    <div class="service-cards">
+      <div class="service-card">
+        <h3>One-on-One In Person</h3>
+        <p>Meet your tutor in person at your chosen location — personalised support at your pace.</p>
+        <a href="oneonone.html?service=one-on-one-in-person">Book in person</a>
+      </div>
+      <div class="service-card">
+        <h3>One-on-One Online</h3>
+        <p>Live online lessons from home with the same tailored attention as in-person sessions.</p>
+        <a href="oneonone.html?service=one-on-one-online">Book online</a>
+      </div>
+      <div class="service-card">
+        <h3>Explanatory Videos</h3>
+        <p>Clear, easy-to-follow video explanations that break down difficult concepts for anytime revision.</p>
+        <a href="oneonone.html?service=explanatory-videos">Book now</a>
+      </div>
+      <div class="service-card">
+        <h3>Personalised Notes</h3>
+        <p>Custom study notes created for each student — summarised, simplified, and curriculum-aligned.</p>
+        <a href="oneonone.html?service=personalised-notes">Book now</a>
+      </div>
+    </div>
+  </section>
+  <section class="about">
+    <h2>About StudiM8 Tutoring</h2>
+    <p>Our one-on-one lessons are the most popular because they give each learner personalised attention, tailored explanations, and the chance to learn at their own pace. Students can ask questions freely, focus on what they struggle with, and make real progress — which is why parents and learners prefer this service.</p>
+    <div class="subjects">
+      <h3>Our Subjects</h3>
+      <ul>
+        <li>Science (Gr 8-12)</li>
+        <li>Mathematics (Gr 5-12)</li>
+        <li>Accounting (Gr 10-12)</li>
+      </ul>
+    </div>
+  </section>
+  <section class="cta">
+    <h2>Join our community of happy students!</h2>
+    <a class="cta-btn" href="quote.html">Get a StudiM8</a>
+  </section>
+  <footer class="footer">
+    <p>Copyright © 2026 StudiM8 Tutoring</p>
+    <p>Powered by StudiM8 Tutoring</p>
+  </footer>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const referrer = document.referrer;
+      if (referrer && referrer.includes('oneonone.html')) {
+        try {
+          const u = new URL(referrer);
+          sessionStorage.setItem('redirectAfterLogin', 'oneonone.html' + u.search);
+        } catch {
+          sessionStorage.setItem('redirectAfterLogin', 'oneonone.html');
+        }
+      }
+    });
+  </script>
+  <script type="module">
+
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfVCzrNcCfhAUp9EONWptvpKNOA8lZoL0",
+      authDomain: "studim8tutoring-bba8e.firebaseapp.com",
+      databaseURL: "https://studim8tutoring-bba8e-default-rtdb.firebaseio.com",
+      projectId: "studim8tutoring-bba8e",
+      storageBucket: "studim8tutoring-bba8e.firebasestorage.app",
+      messagingSenderId: "408589098560",
+      appId: "1:408589098560:web:c3231011730217b3f089a5",
+      measurementId: "G-3839D00B6F"
+    };
+
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+    async function dashboardUrlForUser(uid) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', uid));
+        const role = userDoc.exists() ? userDoc.data().role : 'student';
+        if (role === 'tutor') return 'tutor.html';
+        if (role === 'admin') return 'admin.html';
+        return 'student.html';
+      } catch {
+        return 'student.html';
+      }
+    }
+
+    function syncHomeNav(user) {
+      const loginLink = document.getElementById('nav-login-link');
+      const loggedIn = document.getElementById('nav-logged-in');
+      const label = document.getElementById('nav-user-label');
+      const dashBtn = document.getElementById('nav-dashboard-btn');
+      const logoutBtn = document.getElementById('nav-logout-btn');
+      if (!loginLink || !loggedIn || !label || !dashBtn || !logoutBtn) return;
+
+      if (!user) {
+        loginLink.style.display = '';
+        loggedIn.style.display = 'none';
+        dashBtn.onclick = null;
+        logoutBtn.onclick = null;
+        return;
+      }
+
+      loginLink.style.display = 'none';
+      loggedIn.style.display = 'flex';
+      const name = user.displayName || user.email || 'Signed in';
+      label.textContent = name;
+      label.title = user.email || name;
+
+      dashboardUrlForUser(user.uid).then((url) => {
+        dashBtn.onclick = () => { window.location.href = url; };
+      });
+
+      logoutBtn.onclick = () => {
+        signOut(auth).catch(() => {});
+      };
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      onAuthStateChanged(auth, (user) => {
+        syncHomeNav(user);
+      });
+    });
+  </script>
+</body>
+</html>

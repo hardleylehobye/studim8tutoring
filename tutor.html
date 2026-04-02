@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Tutor Dashboard - StudiM8 Tutoring</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase JS SDKs (modular ES modules) -->
+  <script type="module">
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, where, orderBy, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    window.FirebaseModular = {
+      initializeApp,
+      getApp,
+      getApps,
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged,
+      signOut,
+      setPersistence,
+      browserLocalPersistence,
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      collection,
+      query,
+      where,
+      orderBy,
+      getDocs,
+      updateDoc
+    };
+  </script>
+  <style>
+    .tutor-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .tutor-header {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tutor-sections {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+    .tutor-section {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .section-title {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      color: #333;
+      border-bottom: 2px solid var(--color-primary, #008ba3);
+      padding-bottom: 10px;
+    }
+    .calendar-container {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 30px;
+    }
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin-bottom: 20px;
+    }
+    .calendar-day-header {
+      text-align: center;
+      font-weight: bold;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+    .calendar-day {
+      aspect-ratio: 1;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 5px;
+      cursor: pointer;
+      position: relative;
+      min-height: 60px;
+    }
+    .calendar-day:hover {
+      background: #f8f9fa;
+    }
+    .calendar-day.other-month {
+      color: #ccc;
+      background: #f8f9fa;
+    }
+    .calendar-day.today {
+      border: 2px solid var(--color-primary, #008ba3);
+    }
+    .calendar-day.blocked {
+      background: #ffebee;
+      border-color: #f44336;
+    }
+    .calendar-day.selected {
+      background: #e3f2fd;
+      border-color: #2196f3;
+    }
+    .day-number {
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+    .time-slots {
+      font-size: 0.7rem;
+      margin-top: 5px;
+      color: #666;
+    }
+    .subject-checkboxes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    .subject-item {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .subject-item:hover {
+      background: #f8f9fa;
+    }
+    .subject-item input {
+      margin-right: 8px;
+    }
+    .grade-range {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin: 15px 0;
+    }
+    .grade-select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .availability-slots {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .time-slot {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .time-slot:hover {
+      background: #f8f9fa;
+    }
+    .time-slot input {
+      margin-right: 8px;
+    }
+    .time-slot.blocked {
+      background: #ffebee;
+      border-color: #f44336;
+    }
+    .save-btn {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 20px;
+    }
+    .save-btn:hover {
+      background: #45a049;
+    }
+    .logout-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .status-message {
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 15px;
+      display: none;
+    }
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .tutor-dashboard .dash-details {
+      margin-top: 14px;
+    }
+    @media (max-width: 768px) {
+      .tutor-sections {
+        grid-template-columns: 1fr;
+      }
+      .calendar-grid {
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+      }
+      .calendar-day {
+        min-height: 40px;
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="index.html" class="navbar-logo-link" aria-label="StudiM8 home">
+        <img src="Logo.jpeg" alt="" width="200" height="52" class="site-logo" decoding="async" />
+      </a>
+      <span class="navbar-logo-text">StudiM8 Tutor</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="tutor.html">Dashboard</a></li>
+      <li><button id="logout-btn" class="logout-btn">Logout</button></li>
+    </ul>
+  </nav>
+
+  <div class="tutor-container tutor-dashboard">
+    <div class="tutor-header">
+      <div>
+        <h1>Tutor Dashboard</h1>
+        <p id="tutor-welcome">Welcome, Tutor</p>
+      </div>
+      <div>
+        <p>Last updated: <span id="last-updated">Never</span></p>
+      </div>
+    </div>
+
+    <div class="tutor-sections">
+      <!-- Profile: subjects, grades, contact, area -->
+      <div class="tutor-section">
+        <h2 class="section-title">Your tutor profile</h2>
+        <p style="color:#666;font-size:0.95rem;margin:-8px 0 18px 0;line-height:1.5;">Information about you: what you teach, how to reach you, and the street address where you usually meet students.</p>
+        <div class="subject-checkboxes" id="subject-checkboxes">
+          <div class="subject-item">
+            <input type="checkbox" id="subject-math" value="Mathematics">
+            <label for="subject-math">Mathematics</label>
+          </div>
+          <div class="subject-item">
+            <input type="checkbox" id="subject-science" value="Science">
+            <label for="subject-science">Science</label>
+          </div>
+          <div class="subject-item">
+            <input type="checkbox" id="subject-accounting" value="Accounting">
+            <label for="subject-accounting">Accounting</label>
+          </div>
+          <div class="subject-item">
+            <input type="checkbox" id="subject-english" value="English">
+            <label for="subject-english">English</label>
+          </div>
+          <div class="subject-item">
+            <input type="checkbox" id="subject-history" value="History">
+            <label for="subject-history">History</label>
+          </div>
+          <div class="subject-item">
+            <input type="checkbox" id="subject-geography" value="Geography">
+            <label for="subject-geography">Geography</label>
+          </div>
+        </div>
+        
+        <div class="grade-range">
+          <label><strong>Grade Range:</strong></label>
+          <select id="grade-from" class="grade-select">
+            <option value="">From</option>
+            <option value="5">Grade 5</option>
+            <option value="6">Grade 6</option>
+            <option value="7">Grade 7</option>
+            <option value="8">Grade 8</option>
+            <option value="9">Grade 9</option>
+            <option value="10">Grade 10</option>
+            <option value="11">Grade 11</option>
+            <option value="12">Grade 12</option>
+          </select>
+          <span>to</span>
+          <select id="grade-to" class="grade-select">
+            <option value="">To</option>
+            <option value="5">Grade 5</option>
+            <option value="6">Grade 6</option>
+            <option value="7">Grade 7</option>
+            <option value="8">Grade 8</option>
+            <option value="9">Grade 9</option>
+            <option value="10">Grade 10</option>
+            <option value="11">Grade 11</option>
+            <option value="12">Grade 12</option>
+          </select>
+        </div>
+
+        <details class="dash-details">
+          <summary>Phone &amp; WhatsApp (shared with students when you’re assigned)</summary>
+          <div class="dash-details-body">
+            <p style="margin:0 0 12px 0;color:#666;font-size:0.9rem;line-height:1.45;">Students see these after they’re matched to you. Keep them up to date.</p>
+            <label for="tutor-phone" style="display:block;font-weight:600;margin-bottom:6px;">Phone</label>
+            <input type="tel" id="tutor-phone" class="grade-select" style="width:100%;max-width:22rem;margin-bottom:12px;" placeholder="0821234567" autocomplete="tel">
+            <label for="tutor-whatsapp" style="display:block;font-weight:600;margin-bottom:6px;">WhatsApp</label>
+            <input type="tel" id="tutor-whatsapp" class="grade-select" style="width:100%;max-width:22rem;" placeholder="0821234567" autocomplete="tel">
+          </div>
+        </details>
+
+        <details class="dash-details">
+          <summary>Your usual tutoring address (street-level)</summary>
+          <div class="dash-details-body address-lookup-wrap">
+            <p style="margin:0 0 10px 0;color:#666;font-size:0.9rem;line-height:1.45;">Where you typically meet for in-person lessons. Search picks a map point; you can confirm manually if needed.</p>
+            <label for="tutor-base-location"><strong>Address</strong></label>
+            <input type="text" id="tutor-base-location" class="grade-select" style="width:100%;max-width:28rem;margin-top:8px;" autocomplete="off" placeholder="e.g. 12 Main Road, Hatfield, Pretoria">
+            <div id="tutor-location-suggestions" class="address-suggestions" role="listbox" aria-label="Address suggestions" hidden></div>
+            <p id="tutor-location-status" class="address-status" aria-live="polite"></p>
+            <div id="tutor-location-manual-wrap" class="address-manual-wrap">
+              <label class="address-manual-label">
+                <input type="checkbox" id="tutor-location-manual">
+                <span>Not listed — use what I typed (street number &amp; name, suburb, city — at least 15 characters).</span>
+              </label>
+            </div>
+            <p class="address-attribution"><small>Search data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a></small></p>
+          </div>
+        </details>
+      </div>
+
+      <!-- Sessions Allocated Section -->
+      <div class="tutor-section">
+        <h2 class="section-title">Sessions Allocated</h2>
+        <p style="margin-bottom: 15px; color: #666;">View your upcoming tutoring sessions with students.</p>
+        
+        <div id="sessions-container">
+          <div id="sessions-loading" class="loading">Loading sessions...</div>
+          <div id="sessions-list" style="display: none;">
+            <!-- Sessions will be populated here -->
+          </div>
+          <div id="no-sessions" style="display: none; text-align: center; padding: 40px; color: #666;">
+            <p>No sessions allocated yet. Check back later for new assignments.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin: 8px 0 24px 0;">
+      <button id="save-profile" class="save-btn">Save Tutor Profile</button>
+      <div id="status-message" class="status-message"></div>
+    </div>
+
+    <!-- Calendar Section (below profile & sessions) -->
+    <div class="calendar-container">
+      <div class="calendar-header">
+        <h2>Availability Calendar</h2>
+        <div>
+          <button id="prev-month" style="margin-right: 10px;">← Previous</button>
+          <span id="current-month"></span>
+          <button id="next-month" style="margin-left: 10px;">Next →</button>
+        </div>
+      </div>
+      <div class="calendar-grid" id="calendar-grid">
+        <!-- Calendar will be generated here -->
+      </div>
+      
+      <!-- Time Sheet Modal -->
+      <div id="time-sheet-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;">
+          <h3 id="modal-date-title">Set Availability for Date</h3>
+          <p style="margin-bottom: 20px; color: #666;">Click on hours to block/unblock them. Blocked hours are shown in red.</p>
+          
+          <div class="time-sheet-grid" id="time-sheet-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
+            <!-- Time slots will be generated here -->
+          </div>
+          
+          <div style="text-align: center;">
+            <button id="close-modal" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; margin-right: 10px; cursor: pointer;">Close</button>
+            <button id="save-day-availability" style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Save Availability</button>
+          </div>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 20px; margin-top: 15px;">
+        <div><strong>Legend:</strong></div>
+        <div style="display: flex; align-items: center;">
+          <div style="width: 20px; height: 20px; border: 1px solid #ddd; margin-right: 5px;"></div> Available
+        </div>
+        <div style="display: flex; align-items: center;">
+          <div style="width: 20px; height: 20px; background: #ffebee; border: 1px solid #f44336; margin-right: 5px;"></div> Blocked Hours
+        </div>
+        <div style="display: flex; align-items: center;">
+          <div style="width: 20px; height: 20px; border: 2px solid var(--color-primary, #008ba3); margin-right: 5px;"></div> Today
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfVCzrNcCfhAUp9EONWptvpKNOA8lZoL0",
+      authDomain: "studim8tutoring-bba8e.firebaseapp.com",
+      databaseURL: "https://studim8tutoring-bba8e-default-rtdb.firebaseio.com",
+      projectId: "studim8tutoring-bba8e",
+      storageBucket: "studim8tutoring-bba8e.firebasestorage.app",
+      messagingSenderId: "408589098560",
+      appId: "1:408589098560:web:c3231011730217b3f089a5",
+      measurementId: "G-3839D00B6F"
+    };
+
+    let auth;
+    let db;
+    let tutorAuthRedirectTimer = null;
+
+    const tutorConfig = {
+      currentDate: new Date(),
+      selectedDate: null,
+      tutorData: {
+        subjects: [],
+        gradeFrom: '',
+        gradeTo: '',
+        locationArea: '',
+        locationLabel: '',
+        locationLat: null,
+        locationLng: null,
+        phone: '',
+        whatsapp: '',
+        blockedDates: {}
+      },
+      sessions: []
+    };
+
+    let tutorLegacyLocationOnly = false;
+
+    const tutorLocationLookup = {
+      validated: false,
+      lat: null,
+      lng: null,
+      displayLabel: '',
+      manualFallback: false
+    };
+
+    const MIN_TUTOR_LOCATION_CHARS = 15;
+    let tutorLocationSearchSeq = 0;
+    const NOMINATIM_TUTOR = 'https://nominatim.openstreetmap.org/search';
+    const PHOTON_TUTOR = 'https://photon.komoot.io/api';
+
+    function photonFeatureToAddressItemTutor(f) {
+      const p = f.properties || {};
+      const coords = f.geometry && f.geometry.coordinates;
+      if (!coords || coords.length < 2) return null;
+      const lon = coords[0];
+      const lat = coords[1];
+      const hn = (p.housenumber || '').trim();
+      const street = (p.street || '').trim();
+      const name = (p.name || '').trim();
+      const line1 = hn && street ? hn + ' ' + street : street || name;
+      const locality = p.city || p.town || p.village || p.district || p.locality || p.county || '';
+      const region = p.state || '';
+      const country = p.country || '';
+      const parts = [line1, locality, region, country].filter(Boolean);
+      const display_name = parts.length ? parts.join(', ') : name || 'Location';
+      return {
+        lat: String(lat),
+        lon: String(lon),
+        display_name,
+        address: {
+          house_number: hn || undefined,
+          road: street || name || undefined
+        },
+        class: p.osm_key || 'place',
+        type: p.osm_value || (hn ? 'house' : 'yes')
+      };
+    }
+
+    function rankAddressResultsTutor(query, items) {
+      const q = (query || '').trim().toLowerCase();
+      const leadingHouse = q.match(/^(\d+[a-z]?)\b/i);
+      const wantHouse = leadingHouse ? leadingHouse[1].toLowerCase() : null;
+
+      const scored = items.map((item, origIdx) => {
+        let score = 0;
+        const addr = item.address || {};
+        const dn = (item.display_name || '').toLowerCase();
+        const hn = (addr.house_number || '').toString().toLowerCase();
+
+        if (addr.house_number) score += 100;
+        if (wantHouse && hn && hn.startsWith(wantHouse)) score += 130;
+        if (wantHouse && dn.startsWith(wantHouse)) score += 100;
+        if (item.type === 'house' || item.type === 'building') score += 45;
+        if (item.class === 'building') score += 40;
+        if (item.class === 'place' && item.type === 'house') score += 50;
+        if (item.class === 'highway') score -= 45;
+        if (item.class === 'highway' && item.type === 'residential') score -= 20;
+        if (/^\d/.test((item.display_name || '').trim())) score += 40;
+        score -= origIdx * 0.015;
+        return { item, score };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      return scored.map((x) => x.item);
+    }
+
+    async function fetchMergedAddressSuggestionsTutor(query) {
+      const merged = [];
+      const seen = new Set();
+
+      function pushItem(raw) {
+        if (!raw) return;
+        const lat = parseFloat(raw.lat);
+        const lon = parseFloat(raw.lon);
+        if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+        const dn = (raw.display_name || '').trim();
+        const key = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + dn.slice(0, 56);
+        if (seen.has(key)) return;
+        seen.add(key);
+        merged.push({
+          ...raw,
+          lat: String(lat),
+          lon: String(lon)
+        });
+      }
+
+      try {
+        const bbox = '16.0,-35.0,33.5,-22.0';
+        const pu =
+          PHOTON_TUTOR +
+          '?q=' +
+          encodeURIComponent(query) +
+          '&limit=18&lang=en&bbox=' +
+          bbox;
+        const pr = await fetch(pu, { referrerPolicy: 'no-referrer' });
+        if (pr.ok) {
+          const pj = await pr.json();
+          for (const f of pj.features || []) {
+            const it = photonFeatureToAddressItemTutor(f);
+            if (it) pushItem(it);
+          }
+        }
+      } catch (e) {
+        console.warn('Photon:', e);
+      }
+
+      try {
+        const nu =
+          NOMINATIM_TUTOR +
+          '?format=json&q=' +
+          encodeURIComponent(query) +
+          '&limit=25&addressdetails=1&extratags=1&countrycodes=za&dedupe=1';
+        const nr = await fetch(nu, {
+          headers: { Accept: 'application/json' },
+          referrerPolicy: 'no-referrer'
+        });
+        if (nr.ok) {
+          const nj = await nr.json();
+          for (const item of nj) pushItem(item);
+        }
+      } catch (e) {
+        console.warn('Nominatim:', e);
+      }
+
+      return rankAddressResultsTutor(query, merged).slice(0, 14);
+    }
+
+    function getTutorBaseLocationText() {
+      return (document.getElementById('tutor-base-location')?.value || '').trim();
+    }
+
+    function isTutorLocationReadyForSave() {
+      const t = getTutorBaseLocationText();
+      if (tutorLocationLookup.validated && tutorLocationLookup.lat != null && tutorLocationLookup.lng != null)
+        return true;
+      if (tutorLocationLookup.manualFallback && t.length >= MIN_TUTOR_LOCATION_CHARS) return true;
+      if (tutorLegacyLocationOnly && t === (tutorConfig.tutorData.locationArea || '').trim()) return true;
+      return false;
+    }
+
+    function mergeTutorLocationIntoData() {
+      const t = getTutorBaseLocationText();
+      if (tutorLocationLookup.validated && tutorLocationLookup.lat != null && tutorLocationLookup.lng != null) {
+        tutorConfig.tutorData.locationLabel = tutorLocationLookup.displayLabel.trim();
+        tutorConfig.tutorData.locationLat = tutorLocationLookup.lat;
+        tutorConfig.tutorData.locationLng = tutorLocationLookup.lng;
+        tutorConfig.tutorData.locationArea = '';
+      } else if (tutorLocationLookup.manualFallback && t.length >= MIN_TUTOR_LOCATION_CHARS) {
+        tutorConfig.tutorData.locationLabel = t;
+        tutorConfig.tutorData.locationLat = null;
+        tutorConfig.tutorData.locationLng = null;
+        tutorConfig.tutorData.locationArea = '';
+      }
+    }
+
+    function escapeHtmlTutor(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function setTutorLocationStatus(message, kind) {
+      const st = document.getElementById('tutor-location-status');
+      if (!st) return;
+      st.textContent = message || '';
+      st.className = 'address-status' + (kind ? ' address-status--' + kind : '');
+    }
+
+    function pickTutorLocationSuggestion(item) {
+      const inp = document.getElementById('tutor-base-location');
+      const sug = document.getElementById('tutor-location-suggestions');
+      const lat = parseFloat(item.lat);
+      const lng = parseFloat(item.lon);
+      if (!inp || Number.isNaN(lat) || Number.isNaN(lng)) return;
+      tutorLegacyLocationOnly = false;
+      const label = item.display_name || '';
+      inp.value = label;
+      tutorLocationLookup.validated = true;
+      tutorLocationLookup.lat = lat;
+      tutorLocationLookup.lng = lng;
+      tutorLocationLookup.displayLabel = label;
+      tutorLocationLookup.manualFallback = false;
+      const manualCb = document.getElementById('tutor-location-manual');
+      if (manualCb) manualCb.checked = false;
+      if (sug) {
+        sug.innerHTML = '';
+        sug.hidden = true;
+      }
+      setTutorLocationStatus('Address saved.', 'ok');
+    }
+
+    function initTutorLocationSearch() {
+      if (initTutorLocationSearch._done) return;
+      const inp = document.getElementById('tutor-base-location');
+      const sug = document.getElementById('tutor-location-suggestions');
+      if (!inp || !sug) return;
+      initTutorLocationSearch._done = true;
+
+      inp.addEventListener('input', function () {
+        tutorLegacyLocationOnly = false;
+        const v = this.value.trim();
+        if (tutorLocationLookup.validated && v !== tutorLocationLookup.displayLabel) {
+          tutorLocationLookup.validated = false;
+          tutorLocationLookup.lat = null;
+          tutorLocationLookup.lng = null;
+          tutorLocationLookup.displayLabel = '';
+          setTutorLocationStatus('Location changed — pick a suggestion again.', 'warn');
+        }
+        if (tutorLocationLookup.manualFallback) {
+          const manualCb = document.getElementById('tutor-location-manual');
+          if (manualCb && manualCb.checked) {
+            manualCb.checked = false;
+            tutorLocationLookup.manualFallback = false;
+            setTutorLocationStatus('Manual option cleared because you edited the text.', 'warn');
+          }
+        }
+        if (v.length < 4) {
+          sug.innerHTML = '';
+          sug.hidden = true;
+          if (!tutorLocationLookup.validated) setTutorLocationStatus('', '');
+          return;
+        }
+
+        const seq = ++tutorLocationSearchSeq;
+        clearTimeout(initTutorLocationSearch._t);
+        initTutorLocationSearch._t = setTimeout(async () => {
+          setTutorLocationStatus('Searching…', 'pending');
+          try {
+            const data = await fetchMergedAddressSuggestionsTutor(v);
+            if (seq !== tutorLocationSearchSeq) return;
+            if (!data.length) {
+              sug.innerHTML = '';
+              sug.hidden = true;
+              setTutorLocationStatus(
+                'No match — start with your street number (e.g. 12 Main Road…), then suburb. Or use the option below.',
+                'warn'
+              );
+              return;
+            }
+            sug.hidden = false;
+            sug.innerHTML = data
+              .map(
+                (item, i) =>
+                  `<button type="button" class="address-suggestion-item" role="option" data-tli="${i}">${escapeHtmlTutor(
+                    item.display_name || ''
+                  )}</button>`
+              )
+              .join('');
+            data.forEach((item, i) => {
+              const btn = sug.querySelector(`[data-tli="${i}"]`);
+              if (btn) {
+                btn.addEventListener('mousedown', (e) => e.preventDefault());
+                btn.addEventListener('click', () => pickTutorLocationSuggestion(item));
+              }
+            });
+            setTutorLocationStatus('Pick the line with your street number and street name if it appears.', 'pending');
+          } catch (e) {
+            console.error(e);
+            if (seq === tutorLocationSearchSeq) {
+              sug.innerHTML = '';
+              sug.hidden = true;
+              setTutorLocationStatus('Search failed. Check your connection.', 'err');
+            }
+          }
+        }, 450);
+      });
+
+      const manualCb = document.getElementById('tutor-location-manual');
+      if (manualCb) {
+        manualCb.addEventListener('change', function () {
+          tutorLocationLookup.manualFallback = this.checked;
+          tutorLegacyLocationOnly = false;
+          if (this.checked) {
+            tutorLocationLookup.validated = false;
+            tutorLocationLookup.lat = null;
+            tutorLocationLookup.lng = null;
+            tutorLocationLookup.displayLabel = '';
+            sug.innerHTML = '';
+            sug.hidden = true;
+            setTutorLocationStatus('We’ll save your text. Include street address, suburb, and city.', 'warn');
+          } else {
+            setTutorLocationStatus('', '');
+          }
+        });
+      }
+
+      document.addEventListener('click', function (e) {
+        if (!sug.contains(e.target) && e.target !== inp) sug.hidden = true;
+      });
+    }
+
+    function initTutorDashboard() {
+      if (!window.FirebaseModular) {
+        setTimeout(initTutorDashboard, 50);
+        return;
+      }
+      const FM = window.FirebaseModular;
+      const app = FM.getApps().length ? FM.getApp() : FM.initializeApp(firebaseConfig);
+      auth = FM.getAuth(app);
+      db = FM.getFirestore(app);
+      FM.setPersistence(auth, FM.browserLocalPersistence).catch(() => {});
+
+      FM.onAuthStateChanged(auth, async (user) => {
+        if (tutorAuthRedirectTimer) {
+          clearTimeout(tutorAuthRedirectTimer);
+          tutorAuthRedirectTimer = null;
+        }
+        if (user) {
+          try {
+            const userDoc = await FM.getDoc(FM.doc(db, 'users', user.uid));
+            const userData = userDoc.exists() ? userDoc.data() : null;
+
+            if (!userData || userData.role !== 'tutor') {
+              const r = userData && userData.role;
+              let dest = 'student.html';
+              if (r === 'admin') dest = 'admin.html';
+              else if (r && r !== 'student') dest = 'index.html';
+              window.location.replace(dest);
+              return;
+            }
+
+            document.getElementById('tutor-welcome').textContent = `Welcome, ${user.displayName}`;
+            await loadTutorProfile(user.uid);
+            initializeCalendar();
+            initializeEventListeners();
+            initTutorLocationSearch();
+          } catch (error) {
+            console.error('Error checking tutor privileges:', error);
+            window.location.href = 'index.html';
+          }
+        } else {
+          tutorAuthRedirectTimer = setTimeout(() => {
+            tutorAuthRedirectTimer = null;
+            if (!auth.currentUser) {
+              window.location.href = 'index.html';
+            }
+          }, 750);
+        }
+      });
+
+      document.getElementById('logout-btn').addEventListener('click', function() {
+        window.FirebaseModular.signOut(auth).then(() => {
+          window.location.href = 'index.html';
+        });
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', initTutorDashboard);
+
+    // Load tutor profile from Firestore
+    async function loadTutorProfile(userId) {
+      const FM = window.FirebaseModular;
+      try {
+        const tutorDoc = await FM.getDoc(FM.doc(db, 'tutorProfiles', userId));
+        if (tutorDoc.exists()) {
+          const defaults = {
+            subjects: [],
+            gradeFrom: '',
+            gradeTo: '',
+            locationArea: '',
+            locationLabel: '',
+            locationLat: null,
+            locationLng: null,
+            phone: '',
+            whatsapp: '',
+            blockedDates: {}
+          };
+          tutorConfig.tutorData = { ...defaults, ...tutorDoc.data() };
+          populateForm();
+        } else {
+          console.log('No tutor profile found, using defaults');
+          tutorConfig.tutorData = {
+            subjects: [],
+            gradeFrom: '',
+            gradeTo: '',
+            locationArea: '',
+            locationLabel: '',
+            locationLat: null,
+            locationLng: null,
+            phone: '',
+            whatsapp: '',
+            blockedDates: {}
+          };
+          populateForm();
+        }
+        
+        // Load allocated sessions
+        await loadSessions(userId);
+        
+      } catch (error) {
+        console.error('Error loading tutor profile:', error);
+        if (error.message.includes('Missing or insufficient permissions')) {
+          console.warn('Firestore permissions issue - using local data only');
+          document.getElementById('sessions-loading').textContent = 'Unable to load sessions due to permissions. Please contact admin.';
+        } else {
+          document.getElementById('sessions-loading').textContent = 'Error loading profile';
+        }
+      }
+    }
+
+    // Load allocated sessions
+    async function loadSessions(tutorId) {
+      const FM = window.FirebaseModular;
+      try {
+        // Single-field query (tutorId only) avoids a composite index; filter/sort in memory.
+        const sessionsQuery = FM.query(
+          FM.collection(db, 'sessions'),
+          FM.where('tutorId', '==', tutorId)
+        );
+        const sessionsSnapshot = await FM.getDocs(sessionsQuery);
+
+        const allowedStatus = new Set(['pending_payment', 'scheduled', 'confirmed']);
+        tutorConfig.sessions = [];
+        sessionsSnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (!allowedStatus.has(data.status)) return;
+          tutorConfig.sessions.push({
+            id: docSnap.id,
+            ...data
+          });
+        });
+        tutorConfig.sessions.sort(
+          (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+        );
+
+        displaySessions();
+        
+      } catch (error) {
+        console.error('Error loading sessions:', error);
+        if (error.message.includes('Missing or insufficient permissions')) {
+          console.warn('Cannot load sessions due to permissions');
+          document.getElementById('sessions-loading').textContent = 'Unable to load sessions due to permissions. Please contact admin.';
+        } else {
+          document.getElementById('sessions-loading').textContent = 'Error loading sessions';
+        }
+      }
+    }
+
+    // Display sessions
+    function displaySessions() {
+      const sessionsList = document.getElementById('sessions-list');
+      const noSessions = document.getElementById('no-sessions');
+      const loading = document.getElementById('sessions-loading');
+      
+      loading.style.display = 'none';
+      
+      if (tutorConfig.sessions.length === 0) {
+        noSessions.style.display = 'block';
+        sessionsList.style.display = 'none';
+      } else {
+        noSessions.style.display = 'none';
+        sessionsList.style.display = 'block';
+        
+        sessionsList.innerHTML = '';
+        tutorConfig.sessions.forEach(session => {
+          const sessionEl = createSessionElement(session);
+          sessionsList.appendChild(sessionEl);
+        });
+      }
+    }
+
+    // Create session element
+    function createSessionElement(session) {
+      const sessionEl = document.createElement('div');
+      sessionEl.style.cssText = `
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      `;
+      
+      const sessionDate = new Date(session.createdAt);
+      let statusColor, statusText, statusBg;
+      
+      switch (session.status) {
+        case 'pending_payment':
+          statusColor = '#1565c0';
+          statusText = 'Awaiting student payment';
+          statusBg = '#e3f2fd';
+          break;
+        case 'scheduled':
+          statusColor = '#007bff';
+          statusText = 'Scheduled';
+          statusBg = '#e7f3ff';
+          break;
+        case 'confirmed':
+          statusColor = '#28a745';
+          statusText = 'Confirmed';
+          statusBg = '#d4edda';
+          break;
+        default:
+          statusColor = '#6c757d';
+          statusText = 'Unknown';
+          statusBg = '#f8f9fa';
+      }
+      
+      // Format date and time for display
+      let scheduleDisplay = 'Not specified';
+      if (session.preferredDate && session.startTime && session.endTime) {
+        const date = new Date(session.preferredDate);
+        const dateStr = date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        
+        const formatTime = (time24) => {
+          const [hours, minutes] = time24.split(':');
+          const hour = parseInt(hours);
+          const ampm = hour >= 12 ? 'PM' : 'AM';
+          const hour12 = hour % 12 || 12;
+          return `${hour12}:${minutes} ${ampm}`;
+        };
+        
+        const startTime12 = formatTime(session.startTime);
+        const endTime12 = formatTime(session.endTime);
+        
+        scheduleDisplay = `${dateStr}, ${startTime12} - ${endTime12}`;
+      }
+
+      const svc = (session.serviceType || '').trim();
+      const isOnlineLesson = svc === 'One-on-One Online';
+      const isInPersonLesson = svc === 'One-on-One In Person';
+      const addrTrim = (session.physicalAddress || '').trim();
+
+      let locationBlock = '';
+      if (addrTrim) {
+        locationBlock = `<p style="margin: 8px 0 0 0; color: #333;"><strong>Meeting address:</strong> ${escapeHtmlTutor(addrTrim)}${
+          session.physicalAddressManual
+            ? ' <span style="color:#b45309;font-size:0.85rem;">(typed by student)</span>'
+            : ''
+        }</p>`;
+      } else if (isInPersonLesson) {
+        locationBlock =
+          '<p style="margin: 8px 0 0 0; color: #92400e; font-size: 0.9rem;">No meeting address on file for this session.</p>';
+      }
+
+      const studentEmail = (session.studentEmail || '').trim();
+      let onlineAdviceBlock = '';
+      if (isOnlineLesson) {
+        onlineAdviceBlock = `<div style="padding: 12px 14px; background: #e3f2fd; border: 1px solid #64b5f6; border-radius: 8px; font-size: 0.9rem; line-height: 1.5; color: #0d47a1;">
+          <strong>Online lesson</strong> — Once the student has <strong>completed payment</strong>, reach out to them to arrange the session (video link, WhatsApp call, platform, time zone, etc.).
+          ${
+            studentEmail
+              ? `<br><strong>Student email:</strong> <a href="mailto:${encodeURIComponent(studentEmail)}">${escapeHtmlTutor(
+                  studentEmail
+                )}</a>`
+              : ''
+          }
+        </div>`;
+      }
+
+      const extraParts = [];
+      if (locationBlock) extraParts.push(locationBlock);
+      if (onlineAdviceBlock) extraParts.push(onlineAdviceBlock);
+      if (session.studentPhone) {
+        extraParts.push(
+          `<p style="margin: 0; color: #666;"><strong>Student phone:</strong> ${escapeHtmlTutor(session.studentPhone)}</p>`
+        );
+      }
+      if (session.learningGoals && String(session.learningGoals).trim()) {
+        extraParts.push(
+          `<p style="margin: 0; color: #333; line-height: 1.45;"><strong>Learning goals:</strong> ${escapeHtmlTutor(session.learningGoals)}</p>`
+        );
+      } else if (extraParts.length > 0) {
+        extraParts.push(
+          `<p style="margin: 0; color: #666;"><strong>Learning goals:</strong> Not specified</p>`
+        );
+      }
+      const extraDetailsBlock =
+        extraParts.length > 0
+          ? `<details class="dash-details" style="margin-top:12px;"><summary>Meeting place, contact &amp; notes</summary><div class="dash-details-body" style="display:flex;flex-direction:column;gap:12px;">${extraParts.join(
+              ''
+            )}</div></details>`
+          : '';
+
+      sessionEl.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+          <div>
+            <h4 style="margin: 0; color: #333;">${session.subject || 'Subject'}</h4>
+            <p style="margin: 5px 0; color: #666;">${escapeHtmlTutor(svc || 'Service')}</p>
+            <p style="margin: 5px 0; color: #666;">Grade ${session.grade || 'N/A'}</p>
+            <p style="margin: 5px 0; color: #666;">Student: ${session.studentName || 'Student'}</p>
+            <p style="margin: 5px 0; color: #666;">${scheduleDisplay}</p>
+            ${extraDetailsBlock}
+          </div>
+          <span style="background: ${statusBg}; color: ${statusColor}; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; border: 1px solid ${statusColor};">
+            ${statusText}
+          </span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <p style="margin: 5px 0; color: #333;"><strong>Booked:</strong> ${sessionDate.toLocaleDateString()}</p>
+            <p style="margin: 5px 0; color: #333;"><strong>Payment:</strong> ${session.paid ? 'Paid' : 'Pending Payment'}</p>
+          </div>
+          <div>
+            ${session.status === 'pending' ? 
+              `<button onclick="confirmSession('${session.id}')" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 5px;">Accept & Confirm</button>
+              <button onclick="viewSessionDetails('${session.id}')" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Decline</button>` : 
+              `<button onclick="viewSessionDetails('${session.id}')" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 5px;">View Details</button>`
+            }
+          </div>
+        </div>
+      `;
+      
+      return sessionEl;
+    }
+
+    // View session details
+    function viewSessionDetails(sessionId) {
+      const session = tutorConfig.sessions.find(s => s.id === sessionId);
+      if (session) {
+        const sched =
+          session.preferredDate && session.startTime && session.endTime
+            ? `${session.preferredDate} ${session.startTime}–${session.endTime}`
+            : session.lessonStartDate || '—';
+        const addr = (session.physicalAddress || '').trim();
+        const lines = [
+          `Student: ${session.studentName || '—'}`,
+          session.studentEmail ? `Email: ${session.studentEmail}` : '',
+          `Service: ${session.serviceType || '—'}`,
+          `Subject: ${session.subject || '—'}`,
+          `Grade: ${session.grade || '—'}`,
+          `Lesson: ${sched}`,
+          addr ? `Address: ${addr}` : '',
+          `Payment: ${session.paid ? 'Paid' : 'Pending'}`,
+          `Status: ${session.status || '—'}`,
+          session.learningGoals ? `Goals: ${session.learningGoals}` : ''
+        ].filter(Boolean);
+        alert(`Session details\n\n${lines.join('\n')}`);
+      }
+    }
+
+    // Confirm session
+    async function confirmSession(sessionId) {
+      const FM = window.FirebaseModular;
+      try {
+        await FM.updateDoc(FM.doc(db, 'sessions', sessionId), {
+          status: 'confirmed',
+          confirmedAt: new Date().toISOString(),
+          confirmedBy: auth.currentUser.uid
+        });
+        
+        // Reload sessions
+        const user = auth.currentUser;
+        if (user) {
+          await loadSessions(user.uid);
+        }
+        
+        showMessage('Session confirmed! Student will be notified to make payment.', 'success');
+        
+      } catch (error) {
+        console.error('Error confirming session:', error);
+        showMessage('Error confirming session', 'error');
+      }
+    }
+
+    // Populate form with tutor data
+    function populateForm() {
+      const data = tutorConfig.tutorData;
+      
+      // Populate subjects
+      if (data.subjects) {
+        data.subjects.forEach(subject => {
+          const checkbox = document.querySelector(`input[value="${subject}"]`);
+          if (checkbox) checkbox.checked = true;
+        });
+      }
+      
+      // Populate grade range
+      if (data.gradeFrom) document.getElementById('grade-from').value = data.gradeFrom;
+      if (data.gradeTo) document.getElementById('grade-to').value = data.gradeTo;
+
+      tutorLocationLookup.validated = false;
+      tutorLocationLookup.lat = null;
+      tutorLocationLookup.lng = null;
+      tutorLocationLookup.displayLabel = '';
+      tutorLocationLookup.manualFallback = false;
+      tutorLegacyLocationOnly = false;
+      const manualLoc = document.getElementById('tutor-location-manual');
+      if (manualLoc) manualLoc.checked = false;
+
+      const locInput = document.getElementById('tutor-base-location');
+      if (locInput) {
+        if (data.locationLabel) {
+          locInput.value = data.locationLabel;
+        } else if (data.locationArea) {
+          locInput.value = data.locationArea;
+          if (data.locationLat == null && data.locationLng == null) tutorLegacyLocationOnly = true;
+        } else {
+          locInput.value = '';
+        }
+      }
+
+      if (data.locationLat != null && data.locationLng != null && !Number.isNaN(Number(data.locationLat))) {
+        tutorLocationLookup.validated = true;
+        tutorLocationLookup.lat = Number(data.locationLat);
+        tutorLocationLookup.lng = Number(data.locationLng);
+        tutorLocationLookup.displayLabel = (data.locationLabel || data.locationArea || '').trim();
+        setTutorLocationStatus('Address on file — edit and pick a result again to update.', 'ok');
+      } else if (data.locationLabel && !data.locationLat) {
+        tutorLocationLookup.manualFallback = true;
+        if (manualLoc) manualLoc.checked = true;
+      }
+
+      if (data.phone) document.getElementById('tutor-phone').value = data.phone;
+      if (data.whatsapp) document.getElementById('tutor-whatsapp').value = data.whatsapp;
+    }
+
+    // Initialize calendar
+    function initializeCalendar() {
+      renderCalendar();
+    }
+
+    // Render calendar
+    function renderCalendar() {
+      const year = tutorConfig.currentDate.getFullYear();
+      const month = tutorConfig.currentDate.getMonth();
+      
+      // Update month display
+      document.getElementById('current-month').textContent = 
+        new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      
+      // Clear calendar
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+      
+      // Add day headers
+      const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      dayHeaders.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'calendar-day-header';
+        header.textContent = day;
+        grid.appendChild(header);
+      });
+      
+      // Get first day of month and number of days
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+      
+      // Add previous month days
+      for (let i = firstDay - 1; i >= 0; i--) {
+        const day = daysInPrevMonth - i;
+        const dayElement = createDayElement(day, true, new Date(year, month - 1, day));
+        grid.appendChild(dayElement);
+      }
+      
+      // Add current month days
+      const today = new Date();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const isToday = date.toDateString() === today.toDateString();
+        const dayElement = createDayElement(day, false, date, isToday);
+        grid.appendChild(dayElement);
+      }
+      
+      // Add next month days to fill grid
+      const totalCells = grid.children.length - 7; // Subtract headers
+      const remainingCells = 35 - totalCells;
+      for (let day = 1; day <= remainingCells; day++) {
+        const dayElement = createDayElement(day, true, new Date(year, month + 1, day));
+        grid.appendChild(dayElement);
+      }
+    }
+
+    // Create calendar day element
+    function createDayElement(day, isOtherMonth, date, isToday = false) {
+      const dayElement = document.createElement('div');
+      dayElement.className = 'calendar-day';
+      if (isOtherMonth) dayElement.classList.add('other-month');
+      if (isToday) dayElement.classList.add('today');
+      
+      const dateStr = date.toISOString().split('T')[0];
+      const blockedData = tutorConfig.tutorData.blockedDates[dateStr];
+      
+      if (blockedData && blockedData.length > 0) {
+        dayElement.classList.add('blocked');
+        const blockedHours = blockedData.length;
+        dayElement.innerHTML = `
+          <div class="day-number">${day}</div>
+          <div class="time-slots">${blockedHours} hour${blockedHours > 1 ? 's' : ''} blocked</div>
+        `;
+      } else {
+        dayElement.innerHTML = `
+          <div class="day-number">${day}</div>
+          <div class="time-slots">${isOtherMonth ? '' : 'Click to set hours'}</div>
+        `;
+      }
+      
+      dayElement.addEventListener('click', () => openTimeSheet(date, dayElement));
+      
+      return dayElement;
+    }
+
+    // Open time sheet modal for specific date
+    function openTimeSheet(date, element) {
+      tutorConfig.selectedDate = date;
+      const dateStr = date.toISOString().split('T')[0];
+      
+      // Update modal title
+      document.getElementById('modal-date-title').textContent = 
+        `Set Availability for ${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+      
+      // Generate time slots
+      const timeGrid = document.getElementById('time-sheet-grid');
+      timeGrid.innerHTML = '';
+      
+      const hours = [];
+      for (let hour = 8; hour <= 20; hour++) {
+        hours.push(`${hour.toString().padStart(2, '0')}:00-${(hour + 1).toString().padStart(2, '0')}:00`);
+      }
+      
+      const blockedHours = tutorConfig.tutorData.blockedDates[dateStr] || [];
+      
+      hours.forEach(hour => {
+        const hourElement = document.createElement('div');
+        hourElement.className = 'time-slot-item';
+        hourElement.style.cssText = `
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          text-align: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          background: ${blockedHours.includes(hour) ? '#ffebee' : 'white'};
+          border-color: ${blockedHours.includes(hour) ? '#f44336' : '#ddd'};
+        `;
+        
+        hourElement.textContent = hour;
+        hourElement.addEventListener('click', () => toggleHour(hour, hourElement));
+        
+        timeGrid.appendChild(hourElement);
+      });
+      
+      // Show modal
+      document.getElementById('time-sheet-modal').style.display = 'block';
+    }
+
+    // Toggle hour availability
+    function toggleHour(hour, element) {
+      const dateStr = tutorConfig.selectedDate.toISOString().split('T')[0];
+      
+      if (!tutorConfig.tutorData.blockedDates[dateStr]) {
+        tutorConfig.tutorData.blockedDates[dateStr] = [];
+      }
+      
+      const blockedHours = tutorConfig.tutorData.blockedDates[dateStr];
+      const index = blockedHours.indexOf(hour);
+      
+      if (index > -1) {
+        // Unblock hour
+        blockedHours.splice(index, 1);
+        element.style.background = 'white';
+        element.style.borderColor = '#ddd';
+      } else {
+        // Block hour
+        blockedHours.push(hour);
+        element.style.background = '#ffebee';
+        element.style.borderColor = '#f44336';
+      }
+    }
+
+    // Close modal
+    function closeModal() {
+      document.getElementById('time-sheet-modal').style.display = 'none';
+      renderCalendar(); // Refresh calendar to show blocked hours
+    }
+
+    // Save day availability
+    function saveDayAvailability() {
+      const dateStr = tutorConfig.selectedDate.toISOString().split('T')[0];
+      
+      // Remove empty date entries
+      if (tutorConfig.tutorData.blockedDates[dateStr] && 
+          tutorConfig.tutorData.blockedDates[dateStr].length === 0) {
+        delete tutorConfig.tutorData.blockedDates[dateStr];
+      }
+      
+      closeModal();
+      showMessage('Availability saved for this date!', 'success');
+    }
+
+    // Initialize event listeners
+    function initializeEventListeners() {
+      // Month navigation
+      document.getElementById('prev-month').addEventListener('click', () => {
+        tutorConfig.currentDate.setMonth(tutorConfig.currentDate.getMonth() - 1);
+        renderCalendar();
+      });
+      
+      document.getElementById('next-month').addEventListener('click', () => {
+        tutorConfig.currentDate.setMonth(tutorConfig.currentDate.getMonth() + 1);
+        renderCalendar();
+      });
+      
+      // Modal controls
+      document.getElementById('close-modal').addEventListener('click', closeModal);
+      document.getElementById('save-day-availability').addEventListener('click', saveDayAvailability);
+      
+      // Close modal when clicking outside
+      document.getElementById('time-sheet-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+          closeModal();
+        }
+      });
+      
+      // Subject checkboxes
+      document.querySelectorAll('.subject-item input').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+          if (this.checked) {
+            if (!tutorConfig.tutorData.subjects.includes(this.value)) {
+              tutorConfig.tutorData.subjects.push(this.value);
+            }
+          } else {
+            const index = tutorConfig.tutorData.subjects.indexOf(this.value);
+            if (index > -1) {
+              tutorConfig.tutorData.subjects.splice(index, 1);
+            }
+          }
+        });
+      });
+      
+      // Grade range
+      document.getElementById('grade-from').addEventListener('change', function() {
+        tutorConfig.tutorData.gradeFrom = this.value;
+      });
+      
+      document.getElementById('grade-to').addEventListener('change', function() {
+        tutorConfig.tutorData.gradeTo = this.value;
+      });
+
+      document.getElementById('tutor-phone').addEventListener('input', function() {
+        tutorConfig.tutorData.phone = this.value.trim();
+      });
+      document.getElementById('tutor-whatsapp').addEventListener('input', function() {
+        tutorConfig.tutorData.whatsapp = this.value.trim();
+      });
+      
+      // Save profile
+      document.getElementById('save-profile').addEventListener('click', saveTutorProfile);
+    }
+
+    // Save tutor profile
+    async function saveTutorProfile() {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        // Validate grade range
+        if (tutorConfig.tutorData.gradeFrom && tutorConfig.tutorData.gradeTo) {
+          if (parseInt(tutorConfig.tutorData.gradeFrom) > parseInt(tutorConfig.tutorData.gradeTo)) {
+            showMessage('Grade range is invalid. "From" grade must be less than or equal to "To" grade.', 'error');
+            return;
+          }
+        }
+
+        if (!isTutorLocationReadyForSave()) {
+          showMessage(
+            'Set your tutoring address: pick a result from search, or tick “Not listed” and type a full street address (15+ characters), or keep your previous entry unchanged.',
+            'error'
+          );
+          return;
+        }
+        mergeTutorLocationIntoData();
+
+        // Save to Firestore with permission handling
+        try {
+          const FM = window.FirebaseModular;
+          await FM.setDoc(FM.doc(db, 'tutorProfiles', user.uid), tutorConfig.tutorData);
+          console.log('Tutor profile saved successfully to Firestore');
+        } catch (permissionError) {
+          if (permissionError.message.includes('Missing or insufficient permissions')) {
+            console.warn('Cannot save to Firestore due to permissions - saving locally only');
+            showMessage('Profile saved locally. Firestore permissions issue - contact admin to enable cloud storage.', 'warning');
+          } else {
+            throw permissionError;
+          }
+        }
+        
+        // Update last updated time
+        document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+        
+        showMessage('Tutor profile saved successfully!', 'success');
+        
+      } catch (error) {
+        console.error('Error saving tutor profile:', error);
+        showMessage('Error saving profile. Please try again.', 'error');
+      }
+    }
+
+    // Show status message
+    function showMessage(message, type) {
+      const messageEl = document.getElementById('status-message');
+      messageEl.textContent = message;
+      messageEl.className = `status-message status-${type}`;
+      messageEl.style.display = 'block';
+      
+      setTimeout(() => {
+        messageEl.style.display = 'none';
+      }, 5000);
+    }
+  </script>
+</body>
+</html>

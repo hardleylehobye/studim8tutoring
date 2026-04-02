@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Book Services - StudiM8 Tutoring</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase JS SDKs (modular ES modules) -->
+  <script type="module">
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    window.FirebaseModular = {
+      initializeApp,
+      getApp,
+      getApps,
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged,
+      signOut,
+      setPersistence,
+      browserLocalPersistence,
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      collection,
+      addDoc,
+      query,
+      where,
+      getDocs
+    };
+  </script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="index.html" class="navbar-logo-link" aria-label="StudiM8 home">
+        <img src="Logo.jpeg" alt="" width="200" height="52" class="site-logo" decoding="async" />
+      </a>
+      <span class="navbar-logo-text">StudiM8 Tutoring</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="services.html">All Services</a></li>
+      <li><a href="oneonone.html">Services Booking</a></li>
+      <li><a href="student.html">Dashboard</a></li>
+      <li><a href="login.html" id="booking-nav-login" class="nav-login-link">Log in</a></li>
+      <li><button id="logout-btn" style="display:none;background:var(--color-accent);color:#fff;border:none;padding:0.5rem 1.2rem;border-radius:4px;cursor:pointer;font-size:1rem;">Logout</button></li>
+    </ul>
+  </nav>
+
+  <div class="booking-container">
+    <!-- Login Required State -->
+    <div id="login-required" class="booking-header" style="display: none;">
+      <h1>🔐 Login to Book Services</h1>
+      <p>You need to be logged in to book tutoring services.</p>
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: left;">
+        <h3 style="margin-top: 0;">Why login is required:</h3>
+        <ul style="color: #666; line-height: 1.6;">
+          <li>✅ Track your booking history</li>
+          <li>✅ Manage payment status</li>
+          <li>✅ WhatsApp or call to align with your tutor</li>
+          <li>✅ Access your student dashboard</li>
+        </ul>
+      </div>
+      <div style="text-align: center; margin-top: 30px;">
+        <p style="color:#555;margin-bottom:14px;max-width:28rem;margin-left:auto;margin-right:auto;line-height:1.5;">Sign in below with Google. A popup will open — you stay on this page and can book right after.</p>
+        <button type="button" id="login-with-google-main" class="book-btn" style="background: #4285F4;">
+          Login with Google
+        </button>
+        <p id="login-required-error" style="color:#c62828;margin-top:12px;min-height:1.25em;font-size:0.95rem;" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <!-- Booking Form (Only visible when logged in) -->
+    <div id="booking-content" class="booking-form" style="display: none;">
+      <div class="booking-header">
+        <h1>Book a Service</h1>
+        <p>Pick in-person or online lessons, or order videos or notes.</p>
+      </div>
+      
+      <div class="booking-form">
+        <form id="booking-form">
+          <div id="change-tutor-notice" class="form-section" style="display:none;background:#f8fafc;border:1px solid #bae6fd;border-radius:10px;padding:14px 16px;margin-bottom:4px;">
+            <p style="margin:0;line-height:1.55;color:#334155;font-size:0.95rem;"><strong style="color:var(--color-primary);">Request a different tutor</strong> — Submit a <strong>new</strong> booking below with the service and details you want. If you already have an open session, mention it under <strong>Learning goals</strong> or WhatsApp StudiM8 so we can coordinate.</p>
+          </div>
+          <div class="form-section">
+            <h3>1. Choose Service</h3>
+            <div class="subject-grid" id="service-grid">
+              <div class="subject-option" data-service="One-on-One In Person">
+                <input type="checkbox" id="service-inperson" value="One-on-One In Person">
+                <label for="service-inperson">One-on-One In Person</label>
+              </div>
+              <div class="subject-option" data-service="One-on-One Online">
+                <input type="checkbox" id="service-online" value="One-on-One Online">
+                <label for="service-online">One-on-One Online</label>
+              </div>
+              <div class="subject-option" data-service="Explanatory Videos">
+                <input type="checkbox" id="service-videos" value="Explanatory Videos">
+                <label for="service-videos">Explanatory Videos</label>
+              </div>
+              <div class="subject-option" data-service="Personalised Notes">
+                <input type="checkbox" id="service-notes" value="Personalised Notes">
+                <label for="service-notes">Personalised Notes</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subject Selection -->
+          <div class="form-section">
+            <h3>2. Choose Subject</h3>
+            <div class="subject-grid" id="subject-grid">
+              <div class="subject-option" data-subject="Mathematics">
+                <input type="checkbox" id="subject-math" value="Mathematics">
+                <label for="subject-math">Mathematics</label>
+              </div>
+              <div class="subject-option" data-subject="Science">
+                <input type="checkbox" id="subject-science" value="Science">
+                <label for="subject-science">Science</label>
+              </div>
+              <div class="subject-option" data-subject="Accounting">
+                <input type="checkbox" id="subject-accounting" value="Accounting">
+                <label for="subject-accounting">Accounting</label>
+              </div>
+              <div class="subject-option" data-subject="English">
+                <input type="checkbox" id="subject-english" value="English">
+                <label for="subject-english">English</label>
+              </div>
+              <div class="subject-option" data-subject="History">
+                <input type="checkbox" id="subject-history" value="History">
+                <label for="subject-history">History</label>
+              </div>
+              <div class="subject-option" data-subject="Geography">
+                <input type="checkbox" id="subject-geography" value="Geography">
+                <label for="subject-geography">Geography</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grade Selection -->
+          <div class="form-section">
+            <h3>3. Select Your Grade</h3>
+            <div class="grade-selector">
+              <select id="grade-level" required>
+                <option value="">Select Grade</option>
+                <option value="5">Grade 5</option>
+                <option value="6">Grade 6</option>
+                <option value="7">Grade 7</option>
+                <option value="8">Grade 8</option>
+                <option value="9">Grade 9</option>
+                <option value="10">Grade 10</option>
+                <option value="11">Grade 11</option>
+                <option value="12">Grade 12</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-section" id="section-inperson-address" style="display: none;">
+            <h3>In-person meeting address</h3>
+            <p style="color:#666;font-size:0.9rem;margin-top:0;">Search for your address. We match it on the map when possible. If yours doesn’t show up, you can still book using the option below.</p>
+            <div class="form-group address-lookup-wrap">
+              <label for="inperson-address">Physical address</label>
+              <input type="text" id="inperson-address" autocomplete="off" placeholder="e.g. 12 Main Road, Hatfield, Pretoria" required>
+              <div id="address-suggestions" class="address-suggestions" role="listbox" aria-label="Address suggestions" hidden></div>
+              <p id="address-status" class="address-status" aria-live="polite"></p>
+              <div id="address-manual-wrap" class="address-manual-wrap">
+                <label class="address-manual-label">
+                  <input type="checkbox" id="address-submit-manual">
+                  <span>My address isn’t listed or search failed — use what I typed (include street, suburb, and city or town). Our team may contact you to confirm.</span>
+                </label>
+              </div>
+              <p class="address-attribution"><small>Address search data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors</small></p>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Details</h3>
+            <div class="form-group">
+              <label for="learning-goals">What do you need help with?</label>
+              <textarea id="learning-goals" rows="3" placeholder="Topics, chapters, or goals…"></textarea>
+            </div>
+            <div class="form-group" id="wrap-live-dates" style="display: none;">
+              <label for="lesson-date">Lesson date</label>
+              <input type="date" id="lesson-date">
+              <label for="lesson-start-time" style="margin-top:12px;display:block;">Start time</label>
+              <input type="time" id="lesson-start-time">
+              <label for="lesson-end-time" style="margin-top:12px;display:block;">End time</label>
+              <input type="time" id="lesson-end-time">
+              <small style="color:#666;display:block;margin-top:6px;">One session on this day, from start time to end time. Admin will verify and assign a tutor.</small>
+            </div>
+            <div class="form-group" id="wrap-async-needed" style="display: none;">
+              <label for="needed-by">When do you need your video or notes?</label>
+              <input type="text" id="needed-by" placeholder="e.g., Before Friday 15 March, within 5 days, by end of term">
+              <small style="color:#666;display:block;margin-top:6px;">Tell us your deadline or preferred delivery time — not your lesson timetable.</small>
+            </div>
+          </div>
+
+          <!-- Booking Summary -->
+          <div class="booking-summary" id="booking-summary" style="display: none;">
+            <h4>📋 Booking Summary</h4>
+            <div id="summary-content"></div>
+          </div>
+
+          <button type="submit" id="book-btn" class="book-btn" disabled>Complete Booking</button>
+        </form>
+
+        <div id="status-message" class="status-message"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfVCzrNcCfhAUp9EONWptvpKNOA8lZoL0",
+      authDomain: "studim8tutoring-bba8e.firebaseapp.com",
+      databaseURL: "https://studim8tutoring-bba8e-default-rtdb.firebaseio.com",
+      projectId: "studim8tutoring-bba8e",
+      storageBucket: "studim8tutoring-bba8e.firebasestorage.app",
+      messagingSenderId: "408589098560",
+      appId: "1:408589098560:web:c3231011730217b3f089a5",
+      measurementId: "G-3839D00B6F"
+    };
+
+    let auth;
+    let db;
+    let bookingGoogleSignInAttached = false;
+    const LOGIN_DEBUG = true;
+    const debug = (...args) => {
+      if (LOGIN_DEBUG) console.log('[BOOKING AUTH DEBUG]', ...args);
+    };
+
+    async function signInWithGoogleOnBookingPage() {
+      if (!auth || !db || !window.FirebaseModular) {
+        const errEl = document.getElementById('login-required-error');
+        if (errEl) errEl.textContent = 'Still loading… wait a moment, then try again.';
+        return;
+      }
+      const FM = window.FirebaseModular;
+      const mainBtn = document.getElementById('login-with-google-main');
+      const errEl = document.getElementById('login-required-error');
+
+      const setBusy = (busy) => {
+        if (mainBtn) {
+          mainBtn.disabled = busy;
+          mainBtn.textContent = busy ? 'Signing in…' : 'Login with Google';
+        }
+      };
+
+      try {
+        setBusy(true);
+        if (errEl) errEl.textContent = '';
+
+        const provider = new FM.GoogleAuthProvider();
+        const result = await FM.signInWithPopup(auth, provider);
+        const user = result.user;
+
+        const userDocRef = FM.doc(db, 'users', user.uid);
+        let userDoc = await FM.getDoc(userDocRef);
+        if (!userDoc.exists()) {
+          await FM.setDoc(userDocRef, {
+            email: user.email,
+            name: user.displayName,
+            role: 'student',
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (e) {
+        if (e && e.code === 'auth/popup-closed-by-user') {
+          if (errEl) errEl.textContent = 'Sign-in was cancelled. Try again when you’re ready.';
+        } else {
+          console.error('[BOOKING AUTH DEBUG] Google sign-in failed:', e);
+          if (errEl) {
+            errEl.textContent = 'Could not sign in. Allow pop-ups for this site or try again.';
+          } else {
+            alert('Could not sign in. Please try again.');
+          }
+        }
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    // Booking system functionality
+    const bookingConfig = {
+      currentUser: null,
+      selectedService: null,
+      selectedSubject: null,
+      selectedGrade: null
+    };
+
+    /** Map valid when user picks Nominatim row; manual when user checks fallback (no lat/lng). */
+    const addressLookup = {
+      validated: false,
+      lat: null,
+      lng: null,
+      displayLabel: '',
+      manualFallback: false
+    };
+
+    const MIN_MANUAL_ADDRESS_CHARS = 15;
+
+    let addressSearchSeq = 0;
+    const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search';
+    const PHOTON_SEARCH = 'https://photon.komoot.io/api';
+
+    /** Photon (Komoot) often returns housenumber; Nominatim often returns roads. Merge + rank. */
+    function photonFeatureToAddressItem(f) {
+      const p = f.properties || {};
+      const coords = f.geometry && f.geometry.coordinates;
+      if (!coords || coords.length < 2) return null;
+      const lon = coords[0];
+      const lat = coords[1];
+      const hn = (p.housenumber || '').trim();
+      const street = (p.street || '').trim();
+      const name = (p.name || '').trim();
+      const line1 = hn && street ? hn + ' ' + street : street || name;
+      const locality = p.city || p.town || p.village || p.district || p.locality || p.county || '';
+      const region = p.state || '';
+      const country = p.country || '';
+      const parts = [line1, locality, region, country].filter(Boolean);
+      const display_name = parts.length ? parts.join(', ') : name || 'Location';
+      return {
+        lat: String(lat),
+        lon: String(lon),
+        display_name,
+        address: {
+          house_number: hn || undefined,
+          road: street || name || undefined
+        },
+        class: p.osm_key || 'place',
+        type: p.osm_value || (hn ? 'house' : 'yes'),
+        _src: 'photon'
+      };
+    }
+
+    function rankAddressResults(query, items) {
+      const q = (query || '').trim().toLowerCase();
+      const leadingHouse = q.match(/^(\d+[a-z]?)\b/i);
+      const wantHouse = leadingHouse ? leadingHouse[1].toLowerCase() : null;
+
+      const scored = items.map((item, origIdx) => {
+        let score = 0;
+        const addr = item.address || {};
+        const dn = (item.display_name || '').toLowerCase();
+        const hn = (addr.house_number || '').toString().toLowerCase();
+
+        if (addr.house_number) score += 100;
+        if (wantHouse && hn && hn.startsWith(wantHouse)) score += 130;
+        if (wantHouse && dn.startsWith(wantHouse)) score += 100;
+        if (item.type === 'house' || item.type === 'building') score += 45;
+        if (item.class === 'building') score += 40;
+        if (item.class === 'place' && item.type === 'house') score += 50;
+        if (item.class === 'highway') score -= 45;
+        if (item.class === 'highway' && item.type === 'residential') score -= 20;
+        if (/^\d/.test((item.display_name || '').trim())) score += 40;
+        score -= origIdx * 0.015;
+        return { item, score };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      return scored.map((x) => x.item);
+    }
+
+    async function fetchMergedAddressSuggestions(query) {
+      const merged = [];
+      const seen = new Set();
+
+      function pushItem(raw) {
+        if (!raw) return;
+        const lat = parseFloat(raw.lat);
+        const lon = parseFloat(raw.lon);
+        if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+        const dn = (raw.display_name || '').trim();
+        const key = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + dn.slice(0, 56);
+        if (seen.has(key)) return;
+        seen.add(key);
+        merged.push({
+          ...raw,
+          lat: String(lat),
+          lon: String(lon)
+        });
+      }
+
+      try {
+        const bbox = '16.0,-35.0,33.5,-22.0';
+        const pu =
+          PHOTON_SEARCH +
+          '?q=' +
+          encodeURIComponent(query) +
+          '&limit=18&lang=en&bbox=' +
+          bbox;
+        const pr = await fetch(pu, { referrerPolicy: 'no-referrer' });
+        if (pr.ok) {
+          const pj = await pr.json();
+          for (const f of pj.features || []) {
+            const it = photonFeatureToAddressItem(f);
+            if (it) pushItem(it);
+          }
+        }
+      } catch (e) {
+        console.warn('Photon:', e);
+      }
+
+      try {
+        const nu =
+          NOMINATIM_SEARCH +
+          '?format=json&q=' +
+          encodeURIComponent(query) +
+          '&limit=25&addressdetails=1&extratags=1&countrycodes=za&dedupe=1';
+        const nr = await fetch(nu, {
+          headers: { Accept: 'application/json' },
+          referrerPolicy: 'no-referrer'
+        });
+        if (nr.ok) {
+          const nj = await nr.json();
+          for (const item of nj) pushItem(item);
+        }
+      } catch (e) {
+        console.warn('Nominatim:', e);
+      }
+
+      return rankAddressResults(query, merged).slice(0, 14);
+    }
+
+    function resetAddressLookup() {
+      addressLookup.validated = false;
+      addressLookup.lat = null;
+      addressLookup.lng = null;
+      addressLookup.displayLabel = '';
+      addressLookup.manualFallback = false;
+      const inp = document.getElementById('inperson-address');
+      if (inp) {
+        inp.value = '';
+        inp.classList.remove('address-input-pending');
+      }
+      const manualCb = document.getElementById('address-submit-manual');
+      if (manualCb) manualCb.checked = false;
+      const sug = document.getElementById('address-suggestions');
+      if (sug) {
+        sug.innerHTML = '';
+        sug.hidden = true;
+      }
+      const st = document.getElementById('address-status');
+      if (st) {
+        st.textContent = '';
+        st.className = 'address-status';
+      }
+    }
+
+    function getInPersonAddressText() {
+      return (document.getElementById('inperson-address')?.value || '').trim();
+    }
+
+    function isInPersonAddressReadyForBooking() {
+      const text = getInPersonAddressText();
+      if (!text) return false;
+      if (addressLookup.validated && addressLookup.lat != null && addressLookup.lng != null) return true;
+      if (addressLookup.manualFallback && text.length >= MIN_MANUAL_ADDRESS_CHARS) return true;
+      return false;
+    }
+
+    function getPhysicalAddressForSession() {
+      if (addressLookup.validated && (addressLookup.displayLabel || '').trim())
+        return addressLookup.displayLabel.trim();
+      return getInPersonAddressText();
+    }
+
+    function setAddressStatus(message, kind) {
+      const st = document.getElementById('address-status');
+      if (!st) return;
+      st.textContent = message;
+      st.className = 'address-status' + (kind ? ' address-status--' + kind : '');
+    }
+
+    function pickAddressSuggestion(item) {
+      const inp = document.getElementById('inperson-address');
+      const sug = document.getElementById('address-suggestions');
+      const lat = parseFloat(item.lat);
+      const lng = parseFloat(item.lon);
+      if (!inp || Number.isNaN(lat) || Number.isNaN(lng)) return;
+      const label = item.display_name || '';
+      inp.value = label;
+      addressLookup.validated = true;
+      addressLookup.lat = lat;
+      addressLookup.lng = lng;
+      addressLookup.displayLabel = label;
+      addressLookup.manualFallback = false;
+      const manualCb = document.getElementById('address-submit-manual');
+      if (manualCb) manualCb.checked = false;
+      inp.classList.remove('address-input-pending');
+      if (sug) {
+        sug.innerHTML = '';
+        sug.hidden = true;
+      }
+      setAddressStatus('✓ Address found and saved for your booking.', 'ok');
+      updateBookingSummary();
+    }
+
+    function initInPersonAddressLookup() {
+      const inp = document.getElementById('inperson-address');
+      const sug = document.getElementById('address-suggestions');
+      if (!inp || !sug) return;
+
+      inp.addEventListener('input', function() {
+        const v = this.value.trim();
+        const manualCb = document.getElementById('address-submit-manual');
+        if (manualCb && manualCb.checked) {
+          manualCb.checked = false;
+          addressLookup.manualFallback = false;
+          setAddressStatus('Manual address option cleared because you edited the text. Tick the box again if the map still can’t find you.', 'warn');
+        }
+        if (addressLookup.validated && v !== addressLookup.displayLabel) {
+          addressLookup.validated = false;
+          addressLookup.lat = null;
+          addressLookup.lng = null;
+          addressLookup.displayLabel = '';
+          setAddressStatus('Address changed — pick a suggestion again to confirm.', 'warn');
+          this.classList.add('address-input-pending');
+        }
+        if (v.length < 4) {
+          sug.innerHTML = '';
+          sug.hidden = true;
+          if (!addressLookup.validated) setAddressStatus('', '');
+          return;
+        }
+
+        const seq = ++addressSearchSeq;
+        clearTimeout(initInPersonAddressLookup._t);
+        initInPersonAddressLookup._t = setTimeout(async () => {
+          setAddressStatus('Searching map…', 'pending');
+          try {
+            const data = await fetchMergedAddressSuggestions(v);
+            if (seq !== addressSearchSeq) return;
+            if (!data.length) {
+              sug.innerHTML = '';
+              sug.hidden = true;
+              setAddressStatus(
+                'No match — type your street number first (e.g. 12 Main Road…), then suburb and city. Or use “My address isn’t listed” below.',
+                'warn'
+              );
+              return;
+            }
+            sug.hidden = false;
+            sug.innerHTML = data
+              .map(
+                (item, i) =>
+                  `<button type="button" class="address-suggestion-item" role="option" data-i="${i}">${escapeHtml(
+                    item.display_name || ''
+                  )}</button>`
+              )
+              .join('');
+            data.forEach((item, i) => {
+              const btn = sug.querySelector(`[data-i="${i}"]`);
+              if (btn) {
+                btn.addEventListener('mousedown', (e) => e.preventDefault());
+                btn.addEventListener('click', () => pickAddressSuggestion(item));
+              }
+            });
+            setAddressStatus('Pick the line that shows your full address (number + street if possible).', 'pending');
+          } catch (err) {
+            console.error(err);
+            if (seq === addressSearchSeq) {
+              sug.innerHTML = '';
+              sug.hidden = true;
+              setAddressStatus(
+                'Could not search addresses. Check your connection, or tick “My address isn’t listed” below to type your full address.',
+                'err'
+              );
+            }
+          }
+        }, 450);
+      });
+
+      const manualCb = document.getElementById('address-submit-manual');
+      if (manualCb) {
+        manualCb.addEventListener('change', function () {
+          addressLookup.manualFallback = this.checked;
+          if (this.checked) {
+            addressLookup.validated = false;
+            addressLookup.lat = null;
+            addressLookup.lng = null;
+            addressLookup.displayLabel = '';
+            const sugEl = document.getElementById('address-suggestions');
+            if (sugEl) {
+              sugEl.innerHTML = '';
+              sugEl.hidden = true;
+            }
+            setAddressStatus(
+              'We’ll save your typed address. Please include street, suburb, and city or town (at least ' +
+                MIN_MANUAL_ADDRESS_CHARS +
+                ' characters).',
+              'warn'
+            );
+            inp.classList.add('address-input-pending');
+          } else {
+            setAddressStatus('', '');
+            inp.classList.remove('address-input-pending');
+          }
+          updateBookingSummary();
+        });
+      }
+
+      document.addEventListener('click', function hideSug(e) {
+        if (!sug.contains(e.target) && e.target !== inp) {
+          sug.hidden = true;
+        }
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function isInPersonService() {
+      return bookingConfig.selectedService === 'One-on-One In Person';
+    }
+    function isOnlineLesson() {
+      return bookingConfig.selectedService === 'One-on-One Online';
+    }
+    function isLiveLesson() {
+      return isInPersonService() || isOnlineLesson();
+    }
+    function isAsyncDelivery() {
+      const s = bookingConfig.selectedService;
+      return s === 'Explanatory Videos' || s === 'Personalised Notes';
+    }
+
+    function applyServiceMode() {
+      const s = bookingConfig.selectedService;
+      const addrSec = document.getElementById('section-inperson-address');
+      const asyncNeed = document.getElementById('wrap-async-needed');
+
+      const liveDates = document.getElementById('wrap-live-dates');
+      if (!s) {
+        if (addrSec) addrSec.style.display = 'none';
+        if (liveDates) liveDates.style.display = 'none';
+        if (asyncNeed) asyncNeed.style.display = 'none';
+        updateBookingSummary();
+        return;
+      }
+
+      const inPerson = isInPersonService();
+      const live = isLiveLesson();
+      const async = isAsyncDelivery();
+
+      if (addrSec) addrSec.style.display = inPerson ? 'block' : 'none';
+      if (liveDates) liveDates.style.display = live ? 'block' : 'none';
+      if (asyncNeed) asyncNeed.style.display = async ? 'block' : 'none';
+
+      if (!inPerson) resetAddressLookup();
+
+      updateBookingSummary();
+    }
+
+    // Initialize booking page
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeEventListeners();
+      initInPersonAddressLookup();
+      preselectServiceFromUrl();
+      applyServiceMode();
+      initializeFirebaseAndAuth();
+    });
+
+    function initializeFirebaseAndAuth() {
+      if (!window.FirebaseModular) {
+        setTimeout(initializeFirebaseAndAuth, 50);
+        return;
+      }
+
+      const app = window.FirebaseModular.getApps().length
+        ? window.FirebaseModular.getApp()
+        : window.FirebaseModular.initializeApp(firebaseConfig);
+      auth = window.FirebaseModular.getAuth(app);
+      db = window.FirebaseModular.getFirestore(app);
+      window.FirebaseModular.setPersistence(auth, window.FirebaseModular.browserLocalPersistence).catch(() => {});
+      debug('Firebase initialized for booking page');
+
+      if (!bookingGoogleSignInAttached) {
+        bookingGoogleSignInAttached = true;
+        document.getElementById('login-with-google-main')?.addEventListener('click', signInWithGoogleOnBookingPage);
+        document.getElementById('login-to-book-btn')?.addEventListener('click', signInWithGoogleOnBookingPage);
+        const navLogin = document.getElementById('booking-nav-login');
+        if (navLogin) {
+          navLogin.setAttribute(
+            'href',
+            'login.html?next=' + encodeURIComponent('oneonone.html' + window.location.search)
+          );
+        }
+      }
+
+      window.FirebaseModular.onAuthStateChanged(auth, async (user) => {
+        debug('onAuthStateChanged fired:', user ? {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName
+        } : 'no-user');
+        const bookingContent = document.getElementById('booking-content');
+        const loginRequired = document.getElementById('login-required');
+        const navLoginLink = document.getElementById('booking-nav-login');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        if (!user) {
+          bookingConfig.currentUser = null;
+          bookingContent.style.display = 'none';
+          loginRequired.style.display = 'block';
+          if (navLoginLink) navLoginLink.style.display = 'inline-flex';
+          if (logoutBtn) logoutBtn.style.display = 'none';
+          const errClear = document.getElementById('login-required-error');
+          if (errClear) errClear.textContent = '';
+          return;
+        }
+
+        try {
+          const userDocRef = window.FirebaseModular.doc(db, 'users', user.uid);
+          const userDoc = await window.FirebaseModular.getDoc(userDocRef);
+          const role = userDoc.exists() ? userDoc.data().role : 'student';
+          if (role === 'tutor') {
+            window.location.replace('tutor.html');
+            return;
+          }
+          if (role === 'admin') {
+            window.location.replace('admin.html');
+            return;
+          }
+        } catch (e) {
+          console.error('[BOOKING AUTH DEBUG] Role check failed:', e);
+        }
+
+        bookingConfig.currentUser = user;
+        debug('Booking form unlocked for user');
+        const errClear = document.getElementById('login-required-error');
+        if (errClear) errClear.textContent = '';
+        loginRequired.style.display = 'none';
+        bookingContent.style.display = 'block';
+        if (navLoginLink) navLoginLink.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        showChangeTutorNoticeIfNeeded();
+        updateBookingSummary();
+      });
+    }
+
+    // Initialize event listeners
+    function initializeEventListeners() {
+      // Service selection (single select)
+      document.querySelectorAll('#service-grid .subject-option').forEach(option => {
+        option.addEventListener('click', function() {
+          const checkbox = this.querySelector('input[type="checkbox"]');
+          const service = this.dataset.service;
+
+          document.querySelectorAll('#service-grid .subject-option').forEach(opt => {
+            opt.classList.remove('selected');
+            opt.querySelector('input[type="checkbox"]').checked = false;
+          });
+
+          this.classList.add('selected');
+          checkbox.checked = true;
+          bookingConfig.selectedService = service;
+          applyServiceMode();
+        });
+      });
+
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async function() {
+          if (!auth) return;
+          try {
+            await window.FirebaseModular.signOut(auth);
+          } catch (error) {
+            console.error('[BOOKING AUTH DEBUG] Logout failed:', error);
+          }
+        });
+      }
+      
+      // Subject selection
+      document.querySelectorAll('#subject-grid .subject-option').forEach(option => {
+        option.addEventListener('click', function() {
+          const checkbox = this.querySelector('input[type="checkbox"]');
+          const subject = this.dataset.subject;
+          
+          // Uncheck other subjects (single selection)
+          document.querySelectorAll('#subject-grid .subject-option').forEach(opt => {
+            opt.classList.remove('selected');
+            opt.querySelector('input[type="checkbox"]').checked = false;
+          });
+          
+          // Check this subject
+          this.classList.add('selected');
+          checkbox.checked = true;
+          bookingConfig.selectedSubject = subject;
+          
+          updateBookingSummary();
+        });
+      });
+
+      // Grade selection
+      document.getElementById('grade-level').addEventListener('change', function() {
+        bookingConfig.selectedGrade = this.value;
+        updateBookingSummary();
+      });
+
+      ['needed-by', 'inperson-address', 'lesson-date', 'lesson-start-time', 'lesson-end-time'].forEach((fieldId) => {
+        const el = document.getElementById(fieldId);
+        if (el) el.addEventListener('input', updateBookingSummary);
+        if (el) el.addEventListener('change', updateBookingSummary);
+      });
+
+      // Form submission
+      document.getElementById('booking-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        if (!bookingConfig.currentUser) {
+          showMessage('Please sign in with Google using the button above.', 'error');
+          document.getElementById('login-required')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+        
+        if (!bookingConfig.selectedService || !bookingConfig.selectedSubject || !bookingConfig.selectedGrade) {
+          showMessage('Please choose a service, subject, and grade.', 'error');
+          return;
+        }
+
+        if (isAsyncDelivery()) {
+          const neededBy = (document.getElementById('needed-by')?.value || '').trim();
+          if (!neededBy) {
+            showMessage('Please tell us when you need your video or notes.', 'error');
+            return;
+          }
+        } else if (isLiveLesson()) {
+          const d = document.getElementById('lesson-date')?.value || '';
+          const t0 = document.getElementById('lesson-start-time')?.value || '';
+          const t1 = document.getElementById('lesson-end-time')?.value || '';
+          if (!d || !t0 || !t1) {
+            showMessage('Please choose the lesson date, start time, and end time.', 'error');
+            return;
+          }
+          if (t1 <= t0) {
+            showMessage('End time must be after start time on the same day.', 'error');
+            return;
+          }
+          if (isInPersonService()) {
+            const addr = getInPersonAddressText();
+            if (!addr) {
+              showMessage('Please enter the physical address for in-person lessons.', 'error');
+              return;
+            }
+            if (!isInPersonAddressReadyForBooking()) {
+              if (addressLookup.manualFallback && addr.length < MIN_MANUAL_ADDRESS_CHARS) {
+                showMessage(
+                  'Please type a fuller address (street, suburb, city) — at least ' +
+                    MIN_MANUAL_ADDRESS_CHARS +
+                    ' characters — or pick a result from map search.',
+                  'error'
+                );
+              } else {
+                showMessage(
+                  'Either pick your address from the map search results, or tick “My address isn’t listed” and type your full address.',
+                  'error'
+                );
+              }
+              document.getElementById('inperson-address')?.classList.add('address-input-pending');
+              return;
+            }
+          }
+        }
+        
+        // Show loading state
+        const bookBtn = document.getElementById('book-btn');
+        const originalText = bookBtn.textContent;
+        bookBtn.textContent = 'Booking...';
+        bookBtn.disabled = true;
+        
+        try {
+          const asyncDel = isAsyncDelivery();
+
+          const sessionData = {
+            studentId: bookingConfig.currentUser.uid,
+            studentName: bookingConfig.currentUser.displayName || '',
+            studentEmail: bookingConfig.currentUser.email || '',
+            serviceType: bookingConfig.selectedService,
+            subject: bookingConfig.selectedSubject,
+            grade: bookingConfig.selectedGrade,
+            tutorGenderPreference: '',
+            preferredTutor: 'Admin to assign',
+            tutorId: null,
+            learningGoals: document.getElementById('learning-goals').value,
+            physicalAddress: isInPersonService() ? getPhysicalAddressForSession() : '',
+            physicalAddressLat: isInPersonService() && addressLookup.validated ? addressLookup.lat : null,
+            physicalAddressLng: isInPersonService() && addressLookup.validated ? addressLookup.lng : null,
+            physicalAddressManual:
+              isInPersonService() && addressLookup.manualFallback && !addressLookup.validated ? true : false,
+            neededBy: asyncDel ? (document.getElementById('needed-by')?.value || '').trim() : '',
+            preferredDate: isLiveLesson() ? (document.getElementById('lesson-date')?.value || '') : '',
+            startTime: isLiveLesson() ? (document.getElementById('lesson-start-time')?.value || '') : '',
+            endTime: isLiveLesson() ? (document.getElementById('lesson-end-time')?.value || '') : '',
+            status: 'pending_verification',
+            paid: false,
+            createdAt: new Date().toISOString(),
+            requestedAt: new Date().toISOString(),
+            reusePreviousTutor: false,
+            previousTutorId: null,
+            previousTutorName: null,
+            requiresTutorAssignment: true
+          };
+          
+          // Save to Firestore
+          await window.FirebaseModular.addDoc(window.FirebaseModular.collection(db, 'sessions'), sessionData);
+          
+          // Show success message with booking details
+          showMessage('✅ Booking request submitted successfully!', 'success');
+          
+          // Show booking confirmation
+          showBookingConfirmation(sessionData);
+          
+        } catch (error) {
+          console.error('Booking error:', error);
+          showMessage(`Error submitting booking: ${error.message || 'Please try again.'}`, 'error');
+        } finally {
+          // Reset button
+          bookBtn.textContent = originalText;
+          bookBtn.disabled = false;
+        }
+      });
+    }
+
+    function showChangeTutorNoticeIfNeeded() {
+      const params = new URLSearchParams(window.location.search);
+      const el = document.getElementById('change-tutor-notice');
+      if (!el) return;
+      el.style.display = params.get('changeTutor') === '1' ? 'block' : 'none';
+    }
+
+    function preselectServiceFromUrl() {
+      const serviceMap = {
+        'one-on-one-lessons': 'One-on-One Online',
+        'one-on-one-in-person': 'One-on-One In Person',
+        'one-on-one-online': 'One-on-One Online',
+        'explanatory-videos': 'Explanatory Videos',
+        'personalised-notes': 'Personalised Notes'
+      };
+
+      const params = new URLSearchParams(window.location.search);
+      const serviceKey = (params.get('service') || '').toLowerCase();
+      const serviceName = serviceMap[serviceKey];
+      if (!serviceName) {
+        showChangeTutorNoticeIfNeeded();
+        return;
+      }
+
+      const serviceOption = document.querySelector(`#service-grid .subject-option[data-service="${serviceName}"]`);
+      if (!serviceOption) {
+        showChangeTutorNoticeIfNeeded();
+        return;
+      }
+
+      serviceOption.classList.add('selected');
+      serviceOption.querySelector('input[type="checkbox"]').checked = true;
+      bookingConfig.selectedService = serviceName;
+      applyServiceMode();
+      showChangeTutorNoticeIfNeeded();
+    }
+
+    // Update booking summary
+    function updateBookingSummary() {
+      const summary = document.getElementById('booking-summary');
+      const summaryContent = document.getElementById('summary-content');
+      const bookBtn = document.getElementById('book-btn');
+
+      const baseOk =
+        bookingConfig.selectedService &&
+        bookingConfig.selectedSubject &&
+        bookingConfig.selectedGrade;
+
+      let formOk = false;
+      if (!baseOk) {
+        formOk = false;
+      } else if (isAsyncDelivery()) {
+        formOk = !!(document.getElementById('needed-by')?.value || '').trim();
+      } else if (isLiveLesson()) {
+        const d = document.getElementById('lesson-date')?.value || '';
+        const t0 = document.getElementById('lesson-start-time')?.value || '';
+        const t1 = document.getElementById('lesson-end-time')?.value || '';
+        const datesOk = !!(d && t0 && t1 && t1 > t0);
+        const addrOk = !isInPersonService() || isInPersonAddressReadyForBooking();
+        formOk = addrOk && datesOk;
+      }
+
+      if (formOk) {
+        summary.style.display = 'block';
+        bookBtn.disabled = false;
+
+        const addrText =
+          isInPersonService() && isInPersonAddressReadyForBooking() ? getPhysicalAddressForSession() : '';
+        const addrNote =
+          isInPersonService() && addressLookup.manualFallback && !addressLookup.validated
+            ? ' <em>(not on map — admin may confirm)</em>'
+            : '';
+        const addrLine =
+          addrText
+            ? `<div class="summary-item"><span class="summary-label">Address:</span> ${escapeHtml(addrText)}${addrNote}</div>`
+            : '';
+        const neededLine =
+          isAsyncDelivery() && (document.getElementById('needed-by')?.value || '').trim()
+            ? `<div class="summary-item"><span class="summary-label">Needed by:</span> ${(document.getElementById('needed-by').value || '').trim()}</div>`
+            : '';
+        const dateRangeLine =
+          isLiveLesson() &&
+          (document.getElementById('lesson-date')?.value || '') &&
+          (document.getElementById('lesson-start-time')?.value || '') &&
+          (document.getElementById('lesson-end-time')?.value || '')
+            ? `<div class="summary-item"><span class="summary-label">Lesson:</span> ${document.getElementById('lesson-date').value} ${document.getElementById('lesson-start-time').value}–${document.getElementById('lesson-end-time').value}</div>`
+            : '';
+        const tutorBlock = isLiveLesson()
+          ? `<div class="summary-item"><span class="summary-label">Tutor:</span> StudiM8 will assign after verification</div>`
+          : `<div class="summary-item"><span class="summary-label">Fulfillment:</span> StudiM8 will prepare your order</div>`;
+
+        summaryContent.innerHTML = `
+          <div class="summary-item">
+            <span class="summary-label">Service:</span> ${bookingConfig.selectedService}
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Subject:</span> ${bookingConfig.selectedSubject}
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Grade:</span> ${bookingConfig.selectedGrade}
+          </div>
+          ${addrLine}
+          ${dateRangeLine}
+          ${tutorBlock}
+          ${neededLine}
+          <div class="summary-item">
+            <span class="summary-label">Student:</span> ${bookingConfig.currentUser ? (bookingConfig.currentUser.displayName || 'N/A') : 'N/A'}
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Email:</span> ${bookingConfig.currentUser ? (bookingConfig.currentUser.email || 'N/A') : 'N/A'}
+          </div>
+        `;
+      } else {
+        summary.style.display = 'none';
+        bookBtn.disabled = true;
+      }
+    }
+
+    // Show booking confirmation
+    function showBookingConfirmation(sessionData) {
+      const confirmationHtml = `
+        <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3>📅 Booking Request Confirmed</h3>
+          <div style="background: white; padding: 15px; border-radius: 6px; margin: 10px 0;">
+            <p><strong>Subject:</strong> ${sessionData.subject}</p>
+            <p><strong>Service:</strong> ${sessionData.serviceType}</p>
+            <p><strong>Grade:</strong> ${sessionData.grade}</p>
+            ${sessionData.physicalAddress ? `<p><strong>Meeting address:</strong> ${escapeHtml(sessionData.physicalAddress)}${sessionData.physicalAddressManual ? ' <span style="color:#b45309;">(typed only — not verified on map)</span>' : ''}</p>` : ''}
+            ${sessionData.neededBy ? `<p><strong>Needed by:</strong> ${sessionData.neededBy}</p>` : ''}
+            ${sessionData.preferredDate && sessionData.startTime && sessionData.endTime ? `<p><strong>Lesson:</strong> ${sessionData.preferredDate} ${sessionData.startTime}–${sessionData.endTime}</p>` : ''}
+            <p><strong>Requested:</strong> ${new Date(sessionData.requestedAt).toLocaleString()}</p>
+            <p><strong>Status:</strong> <span style="color: #f59e0b;">⏳ Pending verification</span></p>
+            <p style="color: #666; font-size: 0.9rem; margin-top: 15px;">
+              <strong>Next steps:</strong> An admin will verify your booking and assign a tutor. Then you can pay on your dashboard.
+            </p>
+            <div style="margin-top: 16px; padding: 14px; background: var(--color-surface-tint); border-radius: 8px; border: 1px solid var(--color-surface-tint-2); font-size: 0.92rem; line-height: 1.55; color: #334155;">
+              <strong style="color: var(--color-primary);">General queries</strong><br>
+              For questions about your booking, lessons, or StudiM8 — WhatsApp or call us anytime.
+              <ul style="margin: 10px 0 0 0; padding-left: 1.2rem;">
+                <li style="margin-bottom: 6px;"><strong>StudiM8 WhatsApp:</strong> <a href="https://wa.me/27826518685" target="_blank" rel="noopener noreferrer" style="color:var(--color-link);">+27 82 651 8685</a></li>
+                <li><strong>Call StudiM8:</strong> <a href="tel:+27826518685" style="color:var(--color-link);">+27 82 651 8685</a></li>
+              </ul>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top: 20px;">
+            <button onclick="window.location.href='student.html'" class="book-btn" style="background: #4285F4;">
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      `;
+      
+      // Hide form and show confirmation
+      document.getElementById('booking-form').style.display = 'none';
+      document.getElementById('status-message').innerHTML = confirmationHtml;
+      document.getElementById('status-message').style.display = 'block';
+    }
+
+    // Show status message
+    function showMessage(message, type) {
+      const messageEl = document.getElementById('status-message');
+      messageEl.textContent = message;
+      messageEl.className = `status-message status-${type}`;
+      messageEl.style.display = 'block';
+
+      setTimeout(() => {
+        messageEl.style.display = 'none';
+      }, 5000);
+    }
+  </script>
+</body>
+</html>

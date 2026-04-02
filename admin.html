@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Admin Panel - StudiM8 Tutoring</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase JS SDKs (modular ES modules) -->
+  <script type="module">
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    window.FirebaseModular = {
+      initializeApp,
+      getApp,
+      getApps,
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged,
+      signOut,
+      setPersistence,
+      browserLocalPersistence,
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      collection,
+      getDocs,
+      updateDoc,
+      deleteDoc
+    };
+  </script>
+  <style>
+    .admin-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .admin-header {
+      background: var(--color-surface-tint);
+      color: var(--color-text);
+      padding: 32px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .admin-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .stat-card {
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 139, 163, 0.1);
+      text-align: center;
+      border: 1px solid var(--color-surface-tint-2);
+    }
+    .stat-number {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: var(--color-primary-mid);
+    }
+    .users-table {
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 139, 163, 0.1);
+      border: 1px solid var(--color-surface-tint-2);
+    }
+    .users-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .users-table th,
+    .users-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--color-surface-tint-2);
+    }
+    .users-table th {
+      background: var(--color-surface-tint);
+      font-weight: bold;
+      color: var(--color-text);
+    }
+    .role-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      font-weight: bold;
+    }
+    .role-admin { background: var(--color-accent-bright); color: var(--color-text); }
+    .role-tutor { background: var(--color-primary-mid); color: #fff; }
+    .role-student { background: var(--color-surface-tint); color: var(--color-text); }
+    .role-invalid { background: #dc3545; color: #fff; }
+    .role-select {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--color-surface-tint-2);
+      font-size: 0.875rem;
+    }
+    .logout-btn {
+      background: var(--color-accent);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .role-warning {
+      color: #dc3545;
+      font-weight: bold;
+      margin: 10px 0 0 0;
+      text-align: center;
+    }
+    .admin-tutor-tools .admin-cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      max-width: 520px;
+    }
+    .admin-tutor-tools .admin-cal-head {
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-align: center;
+      padding: 6px 2px;
+      color: #555;
+    }
+    .admin-tutor-tools .admin-cal-day {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      min-height: 48px;
+      padding: 4px;
+      font-size: 0.78rem;
+      background: #fff;
+    }
+    .admin-tutor-tools .admin-cal-day.other {
+      color: #9ca3af;
+      background: #f9fafb;
+    }
+    .admin-tutor-tools .admin-cal-day.admin-cal-blocked {
+      background: #ffebee;
+      border-color: #f44336;
+    }
+    .admin-tutor-tools .admin-cal-day.admin-cal-today {
+      outline: 2px solid var(--color-primary-mid);
+    }
+    .admin-tutor-tools .admin-cal-day .dn {
+      font-weight: 600;
+    }
+    .admin-tutor-tools .admin-cal-sub {
+      display: block;
+      color: #666;
+      font-size: 0.62rem;
+      line-height: 1.25;
+      margin-top: 2px;
+      white-space: normal;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="index.html" class="navbar-logo-link" aria-label="StudiM8 home">
+        <img src="Logo.jpeg" alt="" width="200" height="52" class="site-logo" decoding="async" />
+      </a>
+      <span class="navbar-logo-text">StudiM8 Admin</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="admin.html">Admin Panel</a></li>
+      <li><button id="logout-btn" class="logout-btn">Logout</button></li>
+    </ul>
+  </nav>
+
+  <div class="admin-container admin-dashboard">
+    <div class="admin-header">
+      <div>
+        <h1>Admin Dashboard</h1>
+        <p id="admin-welcome">Welcome, Admin</p>
+      </div>
+      <div>
+        <p>Last updated: <span id="last-updated">Never</span></p>
+      </div>
+    </div>
+
+    <div class="admin-stats">
+      <div class="stat-card">
+        <div class="stat-number" id="total-users">0</div>
+        <div>Total Users</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="admin-users">0</div>
+        <div>Admins</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="tutor-users">0</div>
+        <div>Tutors</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="student-users">0</div>
+        <div>Students</div>
+      </div>
+    </div>
+
+    <div class="users-table admin-tutor-tools" style="margin-top: 28px;">
+      <h2>Tutors — profile &amp; calendar</h2>
+      <details class="dash-details" style="margin-bottom:16px;max-width:48rem;">
+        <summary>How to use this section</summary>
+        <div class="dash-details-body">
+          <p style="color:#555;margin:0;line-height:1.55;">Select a tutor to see subjects, grades, base address, phone, allocated hours, and their <strong>availability calendar</strong> (red = blocked hours that day). Use this together with <strong>distance</strong> in the booking dropdown and blocked-slot warnings when assigning.</p>
+        </div>
+      </details>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;margin-top:16px;margin-bottom:8px;">
+        <div>
+          <label for="admin-tutor-picker" style="display:block;font-weight:600;margin-bottom:6px;">Tutor</label>
+          <select id="admin-tutor-picker" style="min-width:260px;padding:8px;border-radius:6px;border:1px solid var(--color-surface-tint-2);font-size:0.95rem;">
+            <option value="">— Select tutor —</option>
+          </select>
+        </div>
+        <div id="admin-tutor-cal-nav" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;">
+          <button type="button" id="admin-tutor-cal-prev" class="logout-btn" style="font-size:0.85rem;padding:6px 12px;">← Month</button>
+          <span id="admin-tutor-cal-label" style="font-weight:600;min-width:10rem;"></span>
+          <button type="button" id="admin-tutor-cal-next" class="logout-btn" style="font-size:0.85rem;padding:6px 12px;">Month →</button>
+        </div>
+      </div>
+      <div id="admin-tutor-detail"></div>
+      <div id="admin-tutor-calendar-wrap" style="display:none;margin-top:12px;"></div>
+      <div id="admin-tutor-blocked-summary" style="max-width:640px;margin-top:14px;"></div>
+    </div>
+
+    <div class="users-table" style="margin-top: 28px;">
+      <h2>Bookings &amp; verification</h2>
+      <details class="dash-details" style="margin-bottom:16px;max-width:48rem;">
+        <summary>How bookings &amp; assignment work</summary>
+        <div class="dash-details-body">
+          <p style="color:#555;margin:0;line-height:1.55;">Review new requests, confirm lesson details, assign a tutor (dropdown shows <strong>km</strong> and exact <strong>blocked time slots</strong> that overlap the lesson if any), then the student can pay from their dashboard.</p>
+        </div>
+      </details>
+      <div id="bookings-loading" class="loading">Loading bookings…</div>
+      <div style="overflow-x:auto;">
+        <table id="bookings-table" style="display:none;width:100%;font-size:0.9rem;">
+          <thead>
+            <tr>
+              <th>Requested</th>
+              <th>Student</th>
+              <th>Service</th>
+              <th>Subject / Grade</th>
+              <th>Lesson address</th>
+              <th>Lesson date &amp; time</th>
+              <th>Status</th>
+              <th>Do not reassign</th>
+              <th>Tutor</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="bookings-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="users-table" id="user-management-panel">
+      <h2>User Management</h2>
+      <div id="users-loading" class="loading">Loading users...</div>
+      <table id="users-table" style="display: none;">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // Admin functionality
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfVCzrNcCfhAUp9EONWptvpKNOA8lZoL0",
+      authDomain: "studim8tutoring-bba8e.firebaseapp.com",
+      databaseURL: "https://studim8tutoring-bba8e-default-rtdb.firebaseio.com",
+      projectId: "studim8tutoring-bba8e",
+      storageBucket: "studim8tutoring-bba8e.firebasestorage.app",
+      messagingSenderId: "408589098560",
+      appId: "1:408589098560:web:c3231011730217b3f089a5",
+      measurementId: "G-3839D00B6F"
+    };
+
+    const adminConfig = {
+      users: [],
+      currentUser: null,
+      tutorProfiles: {},
+      sessions: [],
+      tutorHours: {}
+    };
+
+    let app;
+    let auth;
+    let db;
+    let adminAuthRedirectTimer = null;
+
+    const adminTutorCalView = {
+      year: new Date().getFullYear(),
+      month: new Date().getMonth(),
+      tutorId: null
+    };
+
+    function initAdminPanel() {
+      if (!window.FirebaseModular) {
+        setTimeout(initAdminPanel, 50);
+        return;
+      }
+
+      app = window.FirebaseModular.getApps().length
+        ? window.FirebaseModular.getApp()
+        : window.FirebaseModular.initializeApp(firebaseConfig);
+      auth = window.FirebaseModular.getAuth(app);
+      db = window.FirebaseModular.getFirestore(app);
+      window.FirebaseModular.setPersistence(auth, window.FirebaseModular.browserLocalPersistence).catch(() => {});
+
+      window.FirebaseModular.onAuthStateChanged(auth, async (user) => {
+        if (adminAuthRedirectTimer) {
+          clearTimeout(adminAuthRedirectTimer);
+          adminAuthRedirectTimer = null;
+        }
+        if (user) {
+          try {
+            const userDoc = await window.FirebaseModular.getDoc(window.FirebaseModular.doc(db, 'users', user.uid));
+            const userData = userDoc.data();
+            const roleNorm = userData && userData.role != null
+              ? String(userData.role).trim().toLowerCase()
+              : '';
+
+            if (!userData || roleNorm !== 'admin') {
+              const r = userData && userData.role;
+              let dest = 'student.html';
+              if (r === 'tutor') dest = 'tutor.html';
+              else if (r && r !== 'student') dest = 'index.html';
+              window.location.replace(dest);
+              return;
+            }
+            
+            adminConfig.currentUser = { ...userData, id: user.uid };
+            document.getElementById('admin-welcome').textContent = `Welcome, ${user.displayName}`;
+            await loadUsers();
+            
+          } catch (error) {
+            console.error('Error checking admin privileges:', error);
+            window.location.href = 'index.html';
+          }
+        } else {
+          adminAuthRedirectTimer = setTimeout(() => {
+            adminAuthRedirectTimer = null;
+            if (!auth.currentUser) {
+              window.location.href = 'index.html';
+            }
+          }, 750);
+        }
+      });
+
+      document.getElementById('logout-btn').addEventListener('click', function() {
+        window.FirebaseModular.signOut(auth).then(() => {
+          window.location.href = 'index.html';
+        });
+      });
+
+      const tPick = document.getElementById('admin-tutor-picker');
+      if (tPick) {
+        tPick.addEventListener('change', function () {
+          adminTutorCalView.tutorId = this.value || null;
+          const nav = document.getElementById('admin-tutor-cal-nav');
+          const detail = document.getElementById('admin-tutor-detail');
+          const calw = document.getElementById('admin-tutor-calendar-wrap');
+          if (!this.value) {
+            if (detail) detail.innerHTML = '';
+          if (calw) {
+            calw.innerHTML = '';
+            calw.style.display = 'none';
+          }
+          const sumE = document.getElementById('admin-tutor-blocked-summary');
+          if (sumE) sumE.innerHTML = '';
+          if (nav) nav.style.display = 'none';
+          return;
+          }
+          const n = new Date();
+          adminTutorCalView.year = n.getFullYear();
+          adminTutorCalView.month = n.getMonth();
+          renderAdminTutorDetail(this.value);
+        });
+      }
+      document.getElementById('admin-tutor-cal-prev')?.addEventListener('click', () => {
+        adminTutorCalView.month--;
+        if (adminTutorCalView.month < 0) {
+          adminTutorCalView.month = 11;
+          adminTutorCalView.year--;
+        }
+        renderAdminTutorCalendarGrid();
+      });
+      document.getElementById('admin-tutor-cal-next')?.addEventListener('click', () => {
+        adminTutorCalView.month++;
+        if (adminTutorCalView.month > 11) {
+          adminTutorCalView.month = 0;
+          adminTutorCalView.year++;
+        }
+        renderAdminTutorCalendarGrid();
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', initAdminPanel);
+
+    // Load all users
+    function adminEscapeHtml(text) {
+      if (text == null || text === '') return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Shared in-person areas (student selects one; tutor selects one).
+    // Update these coordinates later if needed for your real areas.
+    const ADDRESS_AREAS = [
+      'Pretoria CBD',
+      'Hatfield',
+      'Brooklyn',
+      'Centurion',
+      'Midrand',
+      'Sandton',
+      'Rosebank',
+      'Johannesburg CBD',
+      'Randburg',
+      'Edenvale'
+    ];
+
+    const AREA_COORDS = {
+      'Pretoria CBD': { lat: -25.7461, lng: 28.1881 },
+      'Hatfield': { lat: -25.7488, lng: 28.2193 },
+      'Brooklyn': { lat: -25.7500, lng: 28.2800 },
+      'Centurion': { lat: -25.8564, lng: 28.1801 },
+      'Midrand': { lat: -25.9900, lng: 28.1180 },
+      'Sandton': { lat: -26.1030, lng: 28.0580 },
+      'Rosebank': { lat: -26.1430, lng: 28.0420 },
+      'Johannesburg CBD': { lat: -26.2041, lng: 28.0473 },
+      'Randburg': { lat: -26.0940, lng: 27.9930 },
+      'Edenvale': { lat: -26.1320, lng: 28.1400 }
+    };
+
+    function digitsForWhatsAppLink(input) {
+      if (!input || typeof input !== 'string') return '';
+      let d = input.replace(/\D/g, '');
+      if (d.startsWith('0') && d.length === 10) d = '27' + d.slice(1);
+      if (d.startsWith('27') && d.length === 11) return d;
+      return d;
+    }
+
+    async function fetchTutorContactFromProfile(tutorId) {
+      if (!tutorId) return { tutorPhone: null, tutorWhatsAppDigits: null };
+      try {
+        const snap = await window.FirebaseModular.getDoc(
+          window.FirebaseModular.doc(db, 'tutorProfiles', tutorId)
+        );
+        if (!snap.exists()) return { tutorPhone: null, tutorWhatsAppDigits: null };
+        const p = snap.data();
+        const phone = (p.phone || '').trim();
+        const waSrc = (p.whatsapp || p.phone || '').trim();
+        return {
+          tutorPhone: phone || null,
+          tutorWhatsAppDigits: digitsForWhatsAppLink(waSrc) || null
+        };
+      } catch (e) {
+        console.error(e);
+        return { tutorPhone: null, tutorWhatsAppDigits: null };
+      }
+    }
+
+    function haversineKm(lat1, lng1, lat2, lng2) {
+      const R = 6371; // Earth radius in km
+      const dLat = (lat2 - lat1) * (Math.PI / 180);
+      const dLng = (lng2 - lng1) * (Math.PI / 180);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) *
+          Math.cos(lat2 * (Math.PI / 180)) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    /** Prefer lat/lng from map-verified booking; else legacy fixed area name. */
+    function getSessionCoords(session) {
+      if (!session) return null;
+      const lat = session.physicalAddressLat;
+      const lng = session.physicalAddressLng;
+      if (lat != null && lng != null && !Number.isNaN(Number(lat)) && !Number.isNaN(Number(lng))) {
+        return { lat: Number(lat), lng: Number(lng) };
+      }
+      const area = session.physicalAddressArea || session.physicalAddress;
+      if (area && AREA_COORDS[area]) return AREA_COORDS[area];
+      return null;
+    }
+
+    function getTutorCoords(tutorUserId) {
+      const prof = adminConfig.tutorProfiles ? adminConfig.tutorProfiles[tutorUserId] : null;
+      if (!prof) return null;
+      const lat = prof.locationLat;
+      const lng = prof.locationLng;
+      if (lat != null && lng != null && !Number.isNaN(Number(lat)) && !Number.isNaN(Number(lng))) {
+        return { lat: Number(lat), lng: Number(lng) };
+      }
+      const area = prof.locationArea;
+      if (area && AREA_COORDS[area]) return AREA_COORDS[area];
+      return null;
+    }
+
+    function getTutorLocationLabel(tutorUserId) {
+      const prof = adminConfig.tutorProfiles ? adminConfig.tutorProfiles[tutorUserId] : null;
+      if (!prof) return '';
+      return (prof.locationLabel || prof.locationArea || '').trim();
+    }
+
+    function distanceKmSessionToTutor(session, tutorUserId) {
+      const sc = getSessionCoords(session);
+      const tc = getTutorCoords(tutorUserId);
+      if (!sc || !tc) return Infinity;
+      return haversineKm(sc.lat, sc.lng, tc.lat, tc.lng);
+    }
+
+    function getRecommendedTutorForSession(session, tutors) {
+      if (!tutors || !tutors.length) return null;
+      if (!getSessionCoords(session)) return null;
+
+      let bestTutor = null;
+      let bestKm = Infinity;
+      for (const t of tutors) {
+        const km = distanceKmSessionToTutor(session, t.id);
+        if (km < bestKm) {
+          bestKm = km;
+          bestTutor = { tutorId: t.id, km };
+        }
+      }
+      return bestTutor && bestTutor.km !== Infinity ? bestTutor : null;
+    }
+
+    /** Blocked hour slots (e.g. 09:00-10:00) on the lesson date that overlap the session time. */
+    function getLessonOverlappingBlockedSlots(session, tutorId) {
+      if (!session || !tutorId) return [];
+      if (!session.preferredDate || !session.startTime || !session.endTime) return [];
+      const prof = adminConfig.tutorProfiles[tutorId];
+      if (!prof || !prof.blockedDates) return [];
+      const blocked = prof.blockedDates[session.preferredDate];
+      if (!blocked || !blocked.length) return [];
+      const startMin = timeStringToMinutes(session.startTime);
+      const endMin = timeStringToMinutes(session.endTime);
+      if (startMin == null || endMin == null) return [];
+      const out = [];
+      for (let h = 8; h <= 20; h++) {
+        const slotLabel = `${String(h).padStart(2, '0')}:00-${String(h + 1).padStart(2, '0')}:00`;
+        const slotStart = h * 60;
+        const slotEnd = (h + 1) * 60;
+        if (slotEnd <= startMin || slotStart >= endMin) continue;
+        if (blocked.includes(slotLabel)) out.push(slotLabel);
+      }
+      return out;
+    }
+
+    function buildTutorSelectHtml(sessionId, session, tutors) {
+      const recommended = getRecommendedTutorForSession(session, tutors);
+      const excluded = new Set(session.excludedTutorIds || []);
+
+      let defaultId = '';
+      if (recommended && !excluded.has(recommended.tutorId)) {
+        defaultId = recommended.tutorId;
+      } else {
+        const firstOpen = tutors.find((t) => !excluded.has(t.id));
+        defaultId = firstOpen ? firstOpen.id : '';
+      }
+
+      let options =
+        '<option value="">— Assign tutor later —</option>';
+
+      tutors.forEach((t) => {
+        const tutorLocLabel = getTutorLocationLabel(t.id);
+        const km = distanceKmSessionToTutor(session, t.id);
+        const isRecommended = recommended && recommended.tutorId === t.id;
+        const overlapSlots = getLessonOverlappingBlockedSlots(session, t.id);
+        const isExcluded = excluded.has(t.id);
+        const selected = t.id === defaultId && defaultId ? ' selected' : '';
+
+        let label = `${t.name || t.email || t.id}`;
+        if (tutorLocLabel) label += ` · ${tutorLocLabel}`;
+        if (Number.isFinite(km) && km < 1e6) label += ` · ${km.toFixed(1)} km`;
+        if (isRecommended) label += ' ★';
+        if (overlapSlots.length) {
+          label += ' · overlaps blocked: ' + overlapSlots.join(', ');
+        }
+        if (isExcluded) {
+          label += ' — excluded (student asked for someone else)';
+        }
+
+        let title =
+          overlapSlots.length > 0
+            ? 'Blocked slots overlapping this lesson: ' + overlapSlots.join(', ')
+            : '';
+        if (isExcluded) {
+          title = (title ? title + ' · ' : '') + 'Student requested a different tutor; do not assign this person again.';
+        }
+        const titleAttr = title ? ' title="' + adminEscapeHtml(title) + '"' : '';
+
+        options += `<option value="${adminEscapeHtml(t.id)}"${selected}${isExcluded ? ' disabled' : ''}${titleAttr}>${adminEscapeHtml(
+          label
+        )}</option>`;
+      });
+
+      return `<select id="admin-tutor-${sessionId}" style="max-width:22rem;">${options}</select>`;
+    }
+
+    function formatExcludedTutorsCell(s) {
+      const ids = s.excludedTutorIds || [];
+      if (!ids.length) {
+        return '<span style="color:#999;">—</span>';
+      }
+      const parts = ids.map((id) => {
+        const u = adminConfig.users.find((x) => x.id === id);
+        return u ? adminEscapeHtml(u.name || u.email || id) : adminEscapeHtml(id);
+      });
+      return `<span style="font-size:0.85rem;color:#92400e;line-height:1.35;">${parts.join(', ')}</span>`;
+    }
+
+    function timeStringToMinutes(time24) {
+      if (!time24) return null;
+      const [hh, mm] = String(time24).split(':');
+      const h = parseInt(hh, 10);
+      const m = parseInt(mm, 10);
+      if (Number.isNaN(h) || Number.isNaN(m)) return null;
+      return h * 60 + m;
+    }
+
+    function sessionDurationHours(session) {
+      if (!session) return 0;
+      // New format: preferredDate + startTime + endTime
+      if (session.startTime && session.endTime && session.preferredDate) {
+        const startMin = timeStringToMinutes(session.startTime);
+        const endMin = timeStringToMinutes(session.endTime);
+        if (startMin == null || endMin == null) return 0;
+        const diff = endMin - startMin;
+        return diff > 0 ? diff / 60 : 0;
+      }
+      // Legacy format: lessonStartDate + lessonEndDate
+      if (session.lessonStartDate && session.lessonEndDate) {
+        const a = new Date(session.lessonStartDate).getTime();
+        const b = new Date(session.lessonEndDate).getTime();
+        if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+        const diffMs = b - a;
+        return diffMs > 0 ? diffMs / (1000 * 60 * 60) : 0;
+      }
+      return 0;
+    }
+
+    function computeTutorHoursFromSessions(sessions) {
+      const hours = {};
+      const countStatuses = new Set(['scheduled', 'confirmed']);
+      (sessions || []).forEach((s) => {
+        if (!s || !s.tutorId) return;
+        if (!countStatuses.has(s.status)) return;
+        const h = sessionDurationHours(s);
+        if (!hours[s.tutorId]) hours[s.tutorId] = 0;
+        hours[s.tutorId] += h;
+      });
+      // Round to 1 decimal for UI
+      Object.keys(hours).forEach((k) => {
+        hours[k] = Math.round(hours[k] * 10) / 10;
+      });
+      return hours;
+    }
+
+    async function loadTutorProfiles() {
+      const out = {};
+      const snap = await window.FirebaseModular.getDocs(window.FirebaseModular.collection(db, 'tutorProfiles'));
+      snap.forEach((d) => {
+        out[d.id] = { id: d.id, ...d.data() };
+      });
+      return out;
+    }
+
+    async function loadUsers() {
+      try {
+        const usersSnapshot = await window.FirebaseModular.getDocs(window.FirebaseModular.collection(db, 'users'));
+        adminConfig.users = [];
+        usersSnapshot.forEach(docSnap => {
+          adminConfig.users.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        adminConfig.tutorProfiles = await loadTutorProfiles();
+        await loadBookings(); // sets adminConfig.sessions
+        adminConfig.tutorHours = computeTutorHoursFromSessions(adminConfig.sessions);
+
+        updateStats(adminConfig.users);
+        displayUsers();
+        refreshAdminTutorAssignmentPanel();
+        updateLastRefreshed();
+      } catch (error) {
+        console.error('Error loading users:', error);
+        const msg =
+          error && error.code === 'permission-denied'
+            ? 'Firestore blocked this read. In Firebase Console → Firestore → Rules, publish the rules from firestore.rules in this project (admins must be allowed to read all users and sessions).'
+            : 'Error loading users: ' + (error && error.message ? error.message : 'Unknown error');
+        const ul = document.getElementById('users-loading');
+        if (ul) ul.textContent = msg;
+        const bl = document.getElementById('bookings-loading');
+        if (bl) {
+          bl.style.display = 'block';
+          bl.textContent =
+            error && error.code === 'permission-denied'
+              ? 'Bookings could not load (same Firestore rules issue as users).'
+              : 'Bookings were not loaded because user list failed.';
+        }
+      }
+    }
+
+    async function loadBookings() {
+      const loading = document.getElementById('bookings-loading');
+      const table = document.getElementById('bookings-table');
+      const wrap = document.getElementById('bookings-tbody');
+      if (!loading || !table || !wrap) return;
+      loading.style.display = 'block';
+      table.style.display = 'none';
+      loading.textContent = 'Loading bookings…';
+      try {
+        const snap = await window.FirebaseModular.getDocs(window.FirebaseModular.collection(db, 'sessions'));
+        const list = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        adminConfig.sessions = list;
+        const tutors = adminConfig.users.filter((u) => u.role === 'tutor');
+        if (!list.length) {
+          wrap.innerHTML =
+            '<tr><td colspan="10" style="padding:16px;color:#666;">No bookings yet.</td></tr>';
+        } else {
+          wrap.innerHTML = list
+          .map((s) => {
+            const canVerify = s.status === 'pending_verification' || s.status === 'pending';
+            const lessonDates =
+              s.preferredDate && s.startTime && s.endTime
+                ? `${adminEscapeHtml(s.preferredDate)} ${adminEscapeHtml(s.startTime)}–${adminEscapeHtml(s.endTime)}`
+                : s.lessonStartDate && s.lessonEndDate
+                  ? `${adminEscapeHtml(s.lessonStartDate)} → ${adminEscapeHtml(s.lessonEndDate)}`
+                  : '—';
+            const req = s.createdAt ? new Date(s.createdAt).toLocaleString() : '—';
+            const assignCell = canVerify
+              ? buildTutorSelectHtml(s.id, s, tutors)
+              : adminEscapeHtml(s.tutorName || '—');
+            const actionCell = canVerify
+              ? `<button type="button" class="logout-btn" style="font-size:0.8rem;" data-session-id="${s.id}">Verify &amp; enable payment</button>`
+              : s.tutorId && (s.status === 'pending_payment' || s.status === 'scheduled' || s.status === 'confirmed')
+                ? `<button type="button" class="logout-btn" style="font-size:0.8rem;background:#17a2b8;color:#fff;" data-sync-contact="${s.id}">Sync tutor phone to booking</button>`
+                : '—';
+            const excludedCell = formatExcludedTutorsCell(s);
+            return `
+            <tr>
+              <td>${adminEscapeHtml(req)}</td>
+              <td>${adminEscapeHtml(s.studentName || '')}<br><small>${adminEscapeHtml(s.studentEmail || '')}</small></td>
+              <td>${adminEscapeHtml(s.serviceType || '')}</td>
+              <td>${adminEscapeHtml(s.subject || '')} / Gr ${adminEscapeHtml(String(s.grade ?? ''))}</td>
+              <td>${adminEscapeHtml(s.physicalAddress || s.physicalAddressArea || '—')}</td>
+              <td>${lessonDates}</td>
+              <td>${adminEscapeHtml(s.status || '')}</td>
+              <td>${excludedCell}</td>
+              <td>${assignCell}</td>
+              <td>${actionCell}</td>
+            </tr>`;
+          })
+          .join('');
+        }
+        wrap.querySelectorAll('button[data-session-id]').forEach((btn) => {
+          btn.addEventListener('click', () => verifyBookingRequest(btn.getAttribute('data-session-id')));
+        });
+        wrap.querySelectorAll('button[data-sync-contact]').forEach((btn) => {
+          btn.addEventListener('click', () => syncTutorContactToSession(btn.getAttribute('data-sync-contact')));
+        });
+        loading.style.display = 'none';
+        table.style.display = 'table';
+      } catch (e) {
+        console.error(e);
+        loading.textContent =
+          e && e.code === 'permission-denied'
+            ? 'Firestore permission denied for sessions. Update rules (see firestore.rules).'
+            : 'Could not load bookings: ' + (e && e.message ? e.message : 'unknown error');
+      }
+    }
+
+    async function verifyBookingRequest(sessionId) {
+      if (!sessionId || !auth.currentUser) return;
+      const sel = document.getElementById('admin-tutor-' + sessionId);
+      const tutorId = sel && sel.value ? sel.value : '';
+      const s = adminConfig.sessions.find((x) => x.id === sessionId);
+      const excluded = new Set(s && s.excludedTutorIds ? s.excludedTutorIds : []);
+      if (tutorId && excluded.has(tutorId)) {
+        alert(
+          'That tutor is excluded for this booking (the student asked for a different tutor). Pick someone else in the dropdown.'
+        );
+        return;
+      }
+      const tutorUser = adminConfig.users.find((u) => u.id === tutorId);
+      const tutorName = tutorUser
+        ? tutorUser.name || tutorUser.email || 'Tutor'
+        : 'StudiM8 — tutor TBD';
+
+      if (!confirm('Verify this booking and allow the student to pay?')) return;
+
+      try {
+        const contact = await fetchTutorContactFromProfile(tutorId);
+        await window.FirebaseModular.updateDoc(window.FirebaseModular.doc(db, 'sessions', sessionId), {
+          status: 'pending_payment',
+          tutorId: tutorId || null,
+          tutorName: tutorName,
+          tutorPhone: contact.tutorPhone,
+          tutorWhatsAppDigits: contact.tutorWhatsAppDigits,
+          tutorContactSyncedAt: new Date().toISOString(),
+          verifiedAt: new Date().toISOString(),
+          verifiedByAdminId: auth.currentUser.uid
+        });
+        await loadBookings();
+        alert('Verified. The student will see Pending payment, tutor phone (if on file), and can complete payment.');
+      } catch (err) {
+        console.error(err);
+        alert('Could not update this booking. Check Firestore rules.');
+      }
+    }
+
+    async function syncTutorContactToSession(sessionId) {
+      if (!sessionId || !auth.currentUser) return;
+      const s = adminConfig.sessions.find((x) => x.id === sessionId);
+      if (!s || !s.tutorId) {
+        alert('This booking has no tutor assigned.');
+        return;
+      }
+      try {
+        const contact = await fetchTutorContactFromProfile(s.tutorId);
+        await window.FirebaseModular.updateDoc(window.FirebaseModular.doc(db, 'sessions', sessionId), {
+          tutorPhone: contact.tutorPhone,
+          tutorWhatsAppDigits: contact.tutorWhatsAppDigits,
+          tutorContactSyncedAt: new Date().toISOString()
+        });
+        await loadBookings();
+        alert(
+          contact.tutorPhone || contact.tutorWhatsAppDigits
+            ? 'Tutor contact saved on this booking. The student will see it on their dashboard.'
+            : 'No phone or WhatsApp found in this tutor’s profile. Ask the tutor to add numbers in their dashboard, then sync again.'
+        );
+      } catch (err) {
+        console.error(err);
+        alert('Could not update this booking.');
+      }
+    }
+
+    function renderAdminTutorCalendarGrid() {
+      const wrap = document.getElementById('admin-tutor-calendar-wrap');
+      const nav = document.getElementById('admin-tutor-cal-nav');
+      const labelEl = document.getElementById('admin-tutor-cal-label');
+      const tutorId = adminTutorCalView.tutorId;
+      if (!wrap || !tutorId) {
+        if (wrap) wrap.style.display = 'none';
+        if (nav) nav.style.display = 'none';
+        const sumClear = document.getElementById('admin-tutor-blocked-summary');
+        if (sumClear) sumClear.innerHTML = '';
+        return;
+      }
+      const prof = adminConfig.tutorProfiles[tutorId] || {};
+      const blockedDates = prof.blockedDates || {};
+      const year = adminTutorCalView.year;
+      const month = adminTutorCalView.month;
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrev = new Date(year, month, 0).getDate();
+      const today = new Date();
+
+      if (labelEl) {
+        labelEl.textContent = new Date(year, month).toLocaleDateString('en-ZA', {
+          month: 'long',
+          year: 'numeric'
+        });
+      }
+      if (nav) nav.style.display = 'flex';
+      wrap.style.display = 'block';
+
+      let html = '<div class="admin-cal-grid">';
+      const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      dayHeaders.forEach((h) => {
+        html += `<div class="admin-cal-head">${h}</div>`;
+      });
+
+      for (let i = 0; i < firstDay; i++) {
+        const d = daysInPrev - firstDay + i + 1;
+        html += `<div class="admin-cal-day other"><span class="dn">${d}</span></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const blocked = blockedDates[dateStr];
+        const hasBlock = blocked && blocked.length > 0;
+        const isToday =
+          today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+        let cls = 'admin-cal-day';
+        if (hasBlock) cls += ' admin-cal-blocked';
+        if (isToday) cls += ' admin-cal-today';
+        let subHtml = 'Available';
+        let dayTitle = '';
+        if (hasBlock) {
+          const slotsSorted = blocked.slice().sort();
+          const fullSlots = slotsSorted.join(', ');
+          dayTitle = ' title="' + adminEscapeHtml('Blocked: ' + fullSlots) + '"';
+          const short =
+            fullSlots.length > 52 ? fullSlots.slice(0, 50) + '…' : fullSlots;
+          subHtml = adminEscapeHtml(short);
+        }
+        html += `<div class="${cls}"${dayTitle}><span class="dn">${day}</span><span class="admin-cal-sub">${subHtml}</span></div>`;
+      }
+
+      let cellsUsed = firstDay + daysInMonth;
+      let trailing = 35 - cellsUsed;
+      if (trailing < 0) trailing = 42 - cellsUsed;
+      for (let i = 0; i < trailing; i++) {
+        html += `<div class="admin-cal-day other"><span class="dn">${i + 1}</span></div>`;
+      }
+
+      html += '</div>';
+      wrap.innerHTML = html;
+
+      const sumEl = document.getElementById('admin-tutor-blocked-summary');
+      if (sumEl && tutorId) {
+        sumEl.innerHTML = buildBlockedHoursSummaryForMonth(tutorId, year, month);
+      }
+    }
+
+    function buildBlockedHoursSummaryForMonth(tutorId, year, month) {
+      const prof = adminConfig.tutorProfiles[tutorId] || {};
+      const bd = prof.blockedDates || {};
+      const lines = [];
+      const dim = new Date(year, month + 1, 0).getDate();
+      for (let day = 1; day <= dim; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const slots = bd[dateStr];
+        if (!slots || !slots.length) continue;
+        const sorted = slots.slice().sort();
+        const dayLabel = new Date(year, month, day).toLocaleDateString('en-ZA', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short'
+        });
+        lines.push(
+          `<li style="margin-bottom:6px;"><strong>${adminEscapeHtml(dayLabel)}</strong> — ${adminEscapeHtml(
+            sorted.join(', ')
+          )}</li>`
+        );
+      }
+      if (!lines.length) {
+        return '<p style="margin:0;font-size:0.88rem;color:#64748b;">No blocked time slots in this month.</p>';
+      }
+      return (
+        '<p style="margin:0 0 8px 0;font-size:0.9rem;color:#374151;"><strong>Blocked hours this month</strong></p>' +
+        '<ul style="margin:0;padding-left:1.2rem;font-size:0.86rem;line-height:1.5;color:#333;list-style:disc;">' +
+        lines.join('') +
+        '</ul>'
+      );
+    }
+
+    function renderAdminTutorDetail(tutorId) {
+      adminTutorCalView.tutorId = tutorId;
+      const user = adminConfig.users.find((u) => u.id === tutorId);
+      const prof = adminConfig.tutorProfiles[tutorId] || {};
+      const detail = document.getElementById('admin-tutor-detail');
+      if (!detail) return;
+
+      const subjects =
+        Array.isArray(prof.subjects) && prof.subjects.length ? prof.subjects.join(', ') : '—';
+      const grades =
+        prof.gradeFrom || prof.gradeTo
+          ? `Grade ${prof.gradeFrom || '?'} – ${prof.gradeTo || '?'}`
+          : '—';
+      const loc = (prof.locationLabel || prof.locationArea || '').trim() || '—';
+      const phone = (prof.phone || '').trim() || '—';
+      const wa = (prof.whatsapp || '').trim();
+      const hrs = adminConfig.tutorHours[tutorId];
+      const hoursLine = hrs != null ? `${hrs} h (scheduled + confirmed)` : '0 h';
+
+      detail.innerHTML = `
+        <div style="background:#f8fafc;border:1px solid var(--color-surface-tint-2);border-radius:10px;padding:16px 18px;max-width:640px;">
+          <p style="margin:0 0 10px 0;font-size:1.05rem;"><strong>${adminEscapeHtml(
+            user ? user.name || user.email || tutorId : tutorId
+          )}</strong></p>
+          <p style="margin:4px 0;font-size:0.9rem;color:#374151;"><strong>Email:</strong> ${adminEscapeHtml(
+            (user && user.email) || '—'
+          )}</p>
+          <p style="margin:4px 0;font-size:0.9rem;color:#374151;"><strong>Subjects:</strong> ${adminEscapeHtml(subjects)}</p>
+          <p style="margin:4px 0;font-size:0.9rem;color:#374151;"><strong>Grades:</strong> ${adminEscapeHtml(grades)}</p>
+          <p style="margin:4px 0;font-size:0.9rem;color:#374151;"><strong>Base address:</strong> ${adminEscapeHtml(loc)}</p>
+          <p style="margin:4px 0;font-size:0.9rem;color:#374151;"><strong>Phone:</strong> ${adminEscapeHtml(phone)}${
+        wa ? ` · <strong>WhatsApp:</strong> ${adminEscapeHtml(wa)}` : ''
+      }</p>
+          <p style="margin:4px 0;font-size:0.9rem;color:#374151;"><strong>Allocated teaching (approx.):</strong> ${adminEscapeHtml(
+            hoursLine
+          )}</p>
+        </div>`;
+      renderAdminTutorCalendarGrid();
+    }
+
+    function refreshAdminTutorAssignmentPanel() {
+      const sel = document.getElementById('admin-tutor-picker');
+      if (!sel) return;
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">— Select tutor —</option>';
+      adminConfig.users
+        .filter((u) => u.role === 'tutor')
+        .forEach((t) => {
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = `${t.name || t.email || t.id}`;
+          sel.appendChild(opt);
+        });
+      if (prev && [...sel.options].some((o) => o.value === prev)) {
+        sel.value = prev;
+        adminTutorCalView.tutorId = prev;
+        renderAdminTutorDetail(prev);
+      } else {
+        adminTutorCalView.tutorId = null;
+        const detail = document.getElementById('admin-tutor-detail');
+        const calw = document.getElementById('admin-tutor-calendar-wrap');
+        const nav = document.getElementById('admin-tutor-cal-nav');
+        if (detail) detail.innerHTML = '';
+        if (calw) {
+          calw.innerHTML = '';
+          calw.style.display = 'none';
+        }
+        const sum = document.getElementById('admin-tutor-blocked-summary');
+        if (sum) sum.innerHTML = '';
+        if (nav) nav.style.display = 'none';
+      }
+    }
+
+    // Update statistics
+    function updateStats() {
+      const stats = {
+        total: adminConfig.users.length,
+        admin: adminConfig.users.filter(u => u.role === 'admin').length,
+        tutor: adminConfig.users.filter(u => u.role === 'tutor').length,
+        student: adminConfig.users.filter(u => u.role === 'student').length
+      };
+      
+      document.getElementById('total-users').textContent = stats.total;
+      document.getElementById('admin-users').textContent = stats.admin;
+      document.getElementById('tutor-users').textContent = stats.tutor;
+      document.getElementById('student-users').textContent = stats.student;
+    }
+
+    // Display users in table
+    function displayUsers() {
+      const tbody = document.getElementById('users-tbody');
+      tbody.innerHTML = '';
+      let hasInvalidRole = false;
+      adminConfig.users.forEach(user => {
+        const validRoles = ['student', 'tutor', 'admin'];
+        let roleClass = validRoles.includes(user.role) ? `role-${user.role}` : 'role-invalid';
+        if (!validRoles.includes(user.role)) hasInvalidRole = true;
+        const row = document.createElement('tr');
+        const isTutor = user.role === 'tutor';
+        const tutorProf = isTutor ? (adminConfig.tutorProfiles[user.id] || {}) : {};
+        const tutorLocation = tutorProf.locationLabel || tutorProf.locationArea || '—';
+        const tutorSubjects = Array.isArray(tutorProf.subjects) && tutorProf.subjects.length
+          ? tutorProf.subjects.join(', ')
+          : '—';
+        const tutorHours = isTutor && adminConfig.tutorHours ? adminConfig.tutorHours[user.id] || 0 : 0;
+        row.innerHTML = `
+          <td>
+            ${adminEscapeHtml(user.name || 'N/A')}
+            ${
+              isTutor
+                ? `<br><small>Location: ${adminEscapeHtml(tutorLocation)}</small><br><small>Subjects: ${adminEscapeHtml(tutorSubjects)}</small><br><small>Hours: ${adminEscapeHtml(String(tutorHours))}</small>`
+                : ''
+            }
+          </td>
+          <td>${adminEscapeHtml(user.email || 'N/A')}</td>
+          <td>
+            ${user.id === auth.currentUser?.uid 
+              ? `<span class="role-badge ${roleClass}">${user.role || 'invalid'}</span>`
+              : `<select class="role-select" onchange="updateUserRole('${user.id}', this.value)">
+                  <option value="student" ${user.role === 'student' ? 'selected' : ''}>Student</option>
+                  <option value="tutor" ${user.role === 'tutor' ? 'selected' : ''}>Tutor</option>
+                  <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                </select>`
+            }
+          </td>
+          <td>${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</td>
+          <td>
+            ${user.id !== auth.currentUser?.uid 
+              ? `<button onclick="deleteUser('${user.id}')" style="background:#dc3545;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Delete</button>`
+              : '<em>Current User</em>'
+            }
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+      document.getElementById('users-loading').style.display = 'none';
+      document.getElementById('users-table').style.display = 'table';
+      // Show warning if any invalid roles
+      let warning = document.getElementById('role-warning');
+      if (!warning) {
+        warning = document.createElement('div');
+        warning.id = 'role-warning';
+        warning.className = 'role-warning';
+        document.getElementById('user-management-panel').prepend(warning);
+      }
+      warning.textContent = hasInvalidRole ? 'Warning: Some users have missing or invalid roles. Please correct them.' : '';
+    }
+
+    // Update user role
+    async function updateUserRole(userId, newRole) {
+      try {
+        await window.FirebaseModular.updateDoc(window.FirebaseModular.doc(db, 'users', userId), { role: newRole });
+        console.log(`Updated user ${userId} role to ${newRole}`);
+        loadUsers();
+      } catch (error) {
+        console.error('Error updating user role:', error);
+        alert('Error updating user role');
+      }
+    }
+
+    async function deleteUser(userId) {
+      if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+        return;
+      }
+      
+      try {
+        await window.FirebaseModular.deleteDoc(window.FirebaseModular.doc(db, 'users', userId));
+        console.log(`Deleted user ${userId}`);
+        loadUsers();
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('Error deleting user');
+      }
+    }
+
+    // Update last refreshed time
+    function updateLastRefreshed() {
+      document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+    }
+  </script>
+</body>
+</html>

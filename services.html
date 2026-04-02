@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>All Services - StudiM8 Tutoring</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase JS SDKs (modular ES modules) -->
+  <script type="module">
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    window.FirebaseModular = {
+      initializeApp,
+      getApp,
+      getApps,
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged,
+      signOut,
+      setPersistence,
+      browserLocalPersistence,
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc
+    };
+  </script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="index.html" class="navbar-logo-link" aria-label="StudiM8 home">
+        <img src="Logo.jpeg" alt="" width="200" height="52" class="site-logo" decoding="async" />
+      </a>
+      <span class="navbar-logo-text">StudiM8 Tutoring</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="services.html" class="active">All Services</a></li>
+      <li><a href="about.html">About</a></li>
+      <li id="services-nav-auth" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+        <a href="login.html" id="services-login-link" class="nav-login-link">Log in</a>
+        <span id="services-signed-in" style="display:none;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          <span id="services-user-label" style="font-size:0.9rem;color:#333;max-width:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <a href="student.html" id="services-dash-link" style="background:#4285F4;color:#fff;text-decoration:none;padding:0.45rem 1rem;border-radius:4px;font-size:0.95rem;">Dashboard</a>
+          <button type="button" id="services-logout-btn" style="background:var(--color-accent);color:#fff;border:none;padding:0.45rem 1rem;border-radius:4px;cursor:pointer;font-size:0.95rem;">Logout</button>
+        </span>
+      </li>
+    </ul>
+  </nav>
+
+  <header class="hero">
+    <h1>Our Services</h1>
+    <p>Comprehensive tutoring solutions designed to help every student succeed</p>
+  </header>
+
+  <section class="services-overview">
+    <div class="container">
+      <h2>Choose your path</h2>
+      <p style="max-width:38rem;margin:0.5rem auto 0;color:#555;line-height:1.6;">In-person or online lessons, explanatory videos, and personalised notes. Pick a service below to open the booking form.</p>
+    </div>
+  </section>
+
+  <section class="services-grid">
+    <div class="container">
+      <div class="service-cards">
+
+        <!-- One-on-One In Person -->
+        <div class="service-card featured">
+          <div class="service-header">
+            <div class="service-icon">👥</div>
+            <h3>One-on-One In Person</h3>
+            <span class="service-badge popular">Most Popular</span>
+          </div>
+          <div class="service-content">
+            <p>Personalised in-person tutoring sessions tailored to each learner's pace, learning style, and academic goals.</p>
+            <ul class="service-features">
+              <li>✅ Individual attention</li>
+              <li>✅ Customized learning pace</li>
+              <li>✅ Flexible scheduling</li>
+              <li>✅ Personalized study materials</li>
+              <li>✅ Direct tutor communication</li>
+              <li>✅ Meet at a convenient location</li>
+            </ul>
+            <div class="service-subjects">
+              <h4>Available Subjects:</h4>
+              <div class="subject-tags">
+                <span class="subject-tag">Mathematics (Gr 5-12)</span>
+                <span class="subject-tag">Science (Gr 8-12)</span>
+                <span class="subject-tag">Accounting (Gr 10-12)</span>
+                <span class="subject-tag">English (Gr 5-12)</span>
+                <span class="subject-tag">History (Gr 8-12)</span>
+                <span class="subject-tag">Geography (Gr 8-12)</span>
+              </div>
+            </div>
+            <div class="service-pricing">
+              <div class="price">R400<span class="period">/hour</span></div>
+            </div>
+            <a href="oneonone.html?service=one-on-one-in-person" class="service-btn primary">Book In Person</a>
+          </div>
+        </div>
+
+        <!-- One-on-One Online -->
+        <div class="service-card featured">
+          <div class="service-header">
+            <div class="service-icon">💻</div>
+            <h3>One-on-One Online</h3>
+            <span class="service-badge">Online</span>
+          </div>
+          <div class="service-content">
+            <p>Live online tutoring sessions with all the benefits of one-on-one learning, from the comfort of your home.</p>
+            <ul class="service-features">
+              <li>✅ Individual attention</li>
+              <li>✅ Customized learning pace</li>
+              <li>✅ Flexible scheduling</li>
+              <li>✅ Personalized study materials</li>
+              <li>✅ Direct tutor communication</li>
+              <li>✅ Join from anywhere</li>
+              <li>✅ Interactive online tools</li>
+            </ul>
+            <div class="service-subjects">
+              <h4>Available Subjects:</h4>
+              <div class="subject-tags">
+                <span class="subject-tag">Mathematics (Gr 5-12)</span>
+                <span class="subject-tag">Science (Gr 8-12)</span>
+                <span class="subject-tag">Accounting (Gr 10-12)</span>
+                <span class="subject-tag">English (Gr 5-12)</span>
+                <span class="subject-tag">History (Gr 8-12)</span>
+                <span class="subject-tag">Geography (Gr 8-12)</span>
+              </div>
+            </div>
+            <div class="service-pricing">
+              <div class="price">R300<span class="period">/hour</span></div>
+            </div>
+            <a href="oneonone.html?service=one-on-one-online" class="service-btn primary">Book Online</a>
+          </div>
+        </div>
+
+        <!-- Explanatory Videos -->
+        <div class="service-card">
+          <div class="service-header">
+            <div class="service-icon">📹</div>
+            <h3>Explanatory Videos</h3>
+            <span class="service-badge new">New</span>
+          </div>
+          <div class="service-content">
+            <p>Clear, easy-to-follow video explanations that break down difficult concepts for anytime revision.</p>
+            <ul class="service-features">
+              <li>✅ Watch anytime, anywhere</li>
+              <li>✅ Pause and replay as needed</li>
+              <li>✅ Concept-based explanations</li>
+              <li>✅ Visual learning aids</li>
+              <li>✅ Downloadable notes</li>
+            </ul>
+            <div class="service-subjects">
+              <h4>Available Topics:</h4>
+              <div class="subject-tags">
+                <span class="subject-tag">Algebra Basics</span>
+                <span class="subject-tag">Chemistry Concepts</span>
+                <span class="subject-tag">Physics Principles</span>
+                <span class="subject-tag">Essay Writing</span>
+                <span class="subject-tag">Financial Maths</span>
+              </div>
+            </div>
+            <div class="service-pricing">
+              <div class="price">R150<span class="period">/video</span></div>
+            </div>
+            <a href="oneonone.html?service=explanatory-videos" class="service-btn">Book Service</a>
+          </div>
+        </div>
+
+        <!-- Personalised Notes -->
+        <div class="service-card">
+          <div class="service-header">
+            <div class="service-icon">📝</div>
+            <h3>Personalised Notes</h3>
+          </div>
+          <div class="service-content">
+            <p>Custom study notes created for each student — summarised, simplified, and curriculum-aligned.</p>
+            <ul class="service-features">
+              <li>✅ Tailored to your level</li>
+              <li>✅ Simplified explanations</li>
+              <li>✅ Exam-focused content</li>
+              <li>✅ Practice examples</li>
+              <li>✅ Digital & printable formats</li>
+            </ul>
+            <div class="service-subjects">
+              <h4>Available Subjects:</h4>
+              <div class="subject-tags">
+                <span class="subject-tag">Study Guides</span>
+                <span class="subject-tag">Exam Prep</span>
+                <span class="subject-tag">Formula Sheets</span>
+                <span class="subject-tag">Summary Notes</span>
+              </div>
+            </div>
+            <div class="service-pricing">
+              <div class="price">R150<span class="period">/topic</span></div>
+            </div>
+            <a href="oneonone.html?service=personalised-notes" class="service-btn">Book Service</a>
+          </div>
+        </div>
+
+        <!-- Study Groups -->
+        <div class="service-card">
+          <div class="service-header">
+            <div class="service-icon">👨‍🏫</div>
+            <h3>Study Groups</h3>
+            <span class="service-badge coming-soon">Coming Soon</span>
+          </div>
+          <div class="service-content">
+            <p>Collaborative learning sessions with small groups of students at similar levels.</p>
+            <ul class="service-features">
+              <li>✅ Peer learning opportunities</li>
+              <li>✅ Cost-effective option</li>
+              <li>✅ Group problem-solving</li>
+              <li>✅ Shared study resources</li>
+              <li>✅ Regular practice sessions</li>
+            </ul>
+            <div class="service-subjects">
+              <h4>Focus Areas:</h4>
+              <div class="subject-tags">
+                <span class="subject-tag">Exam Prep Groups</span>
+                <span class="subject-tag">Homework Help</span>
+                <span class="subject-tag">Concept Review</span>
+              </div>
+            </div>
+            <div class="service-pricing">
+              <div class="price">R150<span class="period">/session</span></div>
+            </div>
+            <button class="service-btn" disabled>Coming Soon</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="container">
+      <h2>Ready to Start Learning?</h2>
+      <p>Choose the service that best fits your learning style and goals</p>
+      <div class="cta-buttons">
+        <a href="oneonone.html" class="cta-btn primary">Book a Service</a>
+        <a href="quote.html" class="cta-btn secondary">Get a Quote</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Copyright © 2026 StudiM8 Tutoring</p>
+      <p>Powered by StudiM8 Tutoring</p>
+    </div>
+  </footer>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfVCzrNcCfhAUp9EONWptvpKNOA8lZoL0",
+      authDomain: "studim8tutoring-bba8e.firebaseapp.com",
+      databaseURL: "https://studim8tutoring-bba8e-default-rtdb.firebaseio.com",
+      projectId: "studim8tutoring-bba8e",
+      storageBucket: "studim8tutoring-bba8e.firebasestorage.app",
+      messagingSenderId: "408589098560",
+      appId: "1:408589098560:web:c3231011730217b3f089a5",
+      measurementId: "G-3839D00B6F"
+    };
+
+    function initServicesAuth() {
+      if (!window.FirebaseModular) {
+        setTimeout(initServicesAuth, 50);
+        return;
+      }
+      const FM = window.FirebaseModular;
+      const app = FM.getApps().length ? FM.getApp() : FM.initializeApp(firebaseConfig);
+      const auth = FM.getAuth(app);
+      const db = FM.getFirestore(app);
+      FM.setPersistence(auth, FM.browserLocalPersistence).catch(function () {});
+
+      const loginLink = document.getElementById('services-login-link');
+      const signedIn = document.getElementById('services-signed-in');
+      const userLabel = document.getElementById('services-user-label');
+      const dashLink = document.getElementById('services-dash-link');
+      const logoutBtn = document.getElementById('services-logout-btn');
+
+      function setDashboardHref(uid) {
+        FM.getDoc(FM.doc(db, 'users', uid)).then(function (snap) {
+          var role = snap.exists() ? snap.data().role : 'student';
+          var url = role === 'tutor' ? 'tutor.html' : role === 'admin' ? 'admin.html' : 'student.html';
+          if (dashLink) dashLink.href = url;
+        }).catch(function () {
+          if (dashLink) dashLink.href = 'student.html';
+        });
+      }
+
+      FM.onAuthStateChanged(auth, function (user) {
+        if (!user) {
+          if (loginLink) loginLink.style.display = '';
+          if (signedIn) signedIn.style.display = 'none';
+          return;
+        }
+        if (loginLink) loginLink.style.display = 'none';
+        if (signedIn) signedIn.style.display = 'flex';
+        if (userLabel) {
+          userLabel.textContent = user.displayName || user.email || 'Signed in';
+          userLabel.title = user.email || '';
+        }
+        setDashboardHref(user.uid);
+      });
+
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function () {
+          FM.signOut(auth).catch(function () {});
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', initServicesAuth);
+  </script>
+</body>
+</html>

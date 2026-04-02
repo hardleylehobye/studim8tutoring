@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Log in — StudiM8 Tutoring</title>
+  <link rel="icon" href="Logo.jpeg" type="image/jpeg" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="index.html" class="navbar-logo-link" aria-label="StudiM8 home">
+        <img src="Logo.jpeg" alt="" width="200" height="52" class="site-logo" decoding="async" />
+      </a>
+      <span class="navbar-logo-text">StudiM8 Tutoring</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="services.html">All Services</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="oneonone.html">Book a service</a></li>
+    </ul>
+  </nav>
+
+  <main class="login-page-main">
+    <div class="login-card">
+      <h1>Log in</h1>
+      <p>Sign in with your Google account to book lessons, pay, and open your dashboard.</p>
+      <button type="button" id="login-google-btn" class="btn-google" aria-label="Sign in with Google">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+      <p class="login-card-foot"><a href="index.html">← Back to home</a></p>
+      <p id="login-status" class="login-status-msg" role="status" aria-live="polite"></p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Copyright © 2026 StudiM8 Tutoring</p>
+  </footer>
+
+  <script type="module">
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, setPersistence, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfVCzrNcCfhAUp9EONWptvpKNOA8lZoL0",
+      authDomain: "studim8tutoring-bba8e.firebaseapp.com",
+      databaseURL: "https://studim8tutoring-bba8e-default-rtdb.firebaseio.com",
+      projectId: "studim8tutoring-bba8e",
+      storageBucket: "studim8tutoring-bba8e.firebasestorage.app",
+      messagingSenderId: "408589098560",
+      appId: "1:408589098560:web:c3231011730217b3f089a5",
+      measurementId: "G-3839D00B6F"
+    };
+
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+    /** Only allow relative paths to our HTML pages (with optional query), no open redirects. */
+    function getSafeNextPath() {
+      const raw = new URLSearchParams(window.location.search).get("next");
+      if (!raw) return null;
+      let decoded;
+      try {
+        decoded = decodeURIComponent(raw);
+      } catch {
+        return null;
+      }
+      if (decoded.includes("..") || decoded.includes("//") || decoded.startsWith("/")) return null;
+      if (!/^[a-zA-Z0-9._-]+\.html(\?[^#]*)?$/.test(decoded)) return null;
+      return decoded;
+    }
+
+    async function dashboardUrlForUser(uid) {
+      try {
+        const userDoc = await getDoc(doc(db, "users", uid));
+        const role = userDoc.exists() ? userDoc.data().role : "student";
+        if (role === "tutor") return "tutor.html";
+        if (role === "admin") return "admin.html";
+        return "student.html";
+      } catch {
+        return "student.html";
+      }
+    }
+
+    function redirectAfterSignIn(user) {
+      const fromQuery = getSafeNextPath();
+      const fromSession = sessionStorage.getItem("redirectAfterLogin");
+      sessionStorage.removeItem("redirectAfterLogin");
+
+      if (fromQuery) {
+        window.location.href = fromQuery;
+        return;
+      }
+      if (fromSession) {
+        const norm = fromSession.replace(/^\.\//, "");
+        if (norm.split("?")[0] === "oneonone.html") {
+          window.location.href = norm;
+          return;
+        }
+      }
+
+      dashboardUrlForUser(user.uid).then((url) => {
+        window.location.href = url;
+      });
+    }
+
+    let didRedirect = false;
+
+    async function ensureUserDocThenRedirect(user) {
+      if (didRedirect) return;
+      const userDocRef = doc(db, "users", user.uid);
+      let userDoc = await getDoc(userDocRef);
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
+          email: user.email,
+          name: user.displayName,
+          role: "student",
+          createdAt: new Date().toISOString()
+        });
+      }
+      didRedirect = true;
+      redirectAfterSignIn(user);
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) ensureUserDocThenRedirect(user);
+    });
+
+    document.getElementById("login-google-btn")?.addEventListener("click", async () => {
+      const statusEl = document.getElementById("login-status");
+      if (statusEl) statusEl.textContent = "";
+      try {
+        await signInWithPopup(auth, new GoogleAuthProvider());
+      } catch (e) {
+        if (e?.code !== "auth/popup-closed-by-user") {
+          console.error(e);
+          if (statusEl) statusEl.textContent = "Sign-in did not complete. Please try again.";
+        }
+      }
+    });
+  </script>
+</body>
+</html>
