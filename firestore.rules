@@ -55,18 +55,6 @@ service cloud.firestore {
           .hasOnly(['status', 'confirmedAt', 'confirmedBy']);
     }
 
-    function studentSessionMarkPaid() {
-      return resource.data.studentId == request.auth.uid &&
-        sessionBookingCoreUnchanged() &&
-        resource.data.paid != true &&
-        request.resource.data.paid == true &&
-        resource.data.status in ['pending_payment', 'confirmed', 'scheduled'] &&
-        request.resource.data.tutorId == resource.data.tutorId &&
-        request.resource.data.status == resource.data.status &&
-        resource.data.diff(request.resource.data).affectedKeys()
-          .hasOnly(['paid', 'paidAt', 'paymentMethod']);
-    }
-
     function studentSessionTutorReset() {
       return resource.data.studentId == request.auth.uid &&
         sessionBookingCoreUnchanged() &&
@@ -97,6 +85,11 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    /** Serialized live-lesson slots per tutor per day (admin verify only). Prevents double-booking races. */
+    match /tutorDayOccupancy/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     match /tutorProfiles/{tutorId} {
       allow read: if request.auth != null && (
         tutorId == request.auth.uid ||
@@ -122,8 +115,7 @@ service cloud.firestore {
       allow update: if request.auth != null && (
         isAdmin() ||
         (isSessionTutor() && tutorSessionUpdateAllowed()) ||
-        studentSessionTutorReset() ||
-        studentSessionMarkPaid()
+        studentSessionTutorReset()
       );
       allow delete: if request.auth != null && (
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&

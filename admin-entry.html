@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Choose dashboard — StudiM8</title>
+  <link rel="icon" href="Logo.jpeg" type="image/jpeg" />
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .admin-entry-main {
+      min-height: calc(100vh - 140px);
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+    .admin-entry-main h1 {
+      color: var(--color-primary);
+      font-size: 1.65rem;
+      margin: 0 0 0.5rem;
+      text-align: center;
+    }
+    .admin-entry-lead {
+      text-align: center;
+      color: #555;
+      margin: 0 0 2rem;
+      line-height: 1.55;
+      font-size: 0.98rem;
+    }
+    .admin-entry-grid {
+      display: grid;
+      gap: 1rem;
+    }
+    @media (min-width: 600px) {
+      .admin-entry-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+    }
+    .admin-entry-card {
+      display: block;
+      padding: 1.35rem 1.15rem;
+      border-radius: 12px;
+      border: 1px solid var(--color-surface-tint-2);
+      background: #fff;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: 0 2px 12px rgba(0, 139, 163, 0.08);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      text-align: center;
+    }
+    .admin-entry-card:hover {
+      border-color: var(--color-primary-mid);
+      box-shadow: 0 4px 20px rgba(0, 139, 163, 0.12);
+    }
+    .admin-entry-card strong {
+      display: block;
+      color: var(--color-primary);
+      font-size: 1.1rem;
+      margin-bottom: 0.45rem;
+    }
+    .admin-entry-card span {
+      font-size: 0.88rem;
+      color: #666;
+      line-height: 1.45;
+    }
+    .admin-entry-wait {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #888;
+    }
+    .admin-entry-denied {
+      text-align: center;
+      padding: 2rem;
+      color: #b91c1c;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="index.html" class="navbar-logo-link" aria-label="StudiM8 home">
+        <img src="Logo.jpeg" alt="" width="200" height="52" class="site-logo" decoding="async" />
+      </a>
+      <span class="navbar-logo-text">StudiM8 Tutoring</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="admin.html">Admin panel</a></li>
+      <li><button type="button" id="admin-entry-logout" class="logout-btn" style="border:none;cursor:pointer;">Log out</button></li>
+    </ul>
+  </nav>
+
+  <main class="admin-entry-main">
+    <div id="admin-entry-wait" class="admin-entry-wait" aria-live="polite">Checking your account…</div>
+    <div id="admin-entry-denied" class="admin-entry-denied" style="display:none;"></div>
+    <div id="admin-entry-chooser" style="display:none;">
+      <h1>Where do you want to go?</h1>
+      <p class="admin-entry-lead">You’re signed in as an <strong>admin</strong>. Open the real admin tools, or preview the tutor or student experience (uses your own account — sessions show only if you’re assigned).</p>
+      <div class="admin-entry-grid">
+        <a class="admin-entry-card" href="admin.html">
+          <strong>Admin</strong>
+          <span>Bookings, users, tutor calendar, verification</span>
+        </a>
+        <a class="admin-entry-card" href="tutor.html">
+          <strong>Tutor</strong>
+          <span>Tutor dashboard &amp; session list</span>
+        </a>
+        <a class="admin-entry-card" href="student.html">
+          <strong>Student</strong>
+          <span>Student dashboard &amp; PayFast checkout</span>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Copyright © 2026 StudiM8 Tutoring</p>
+  </footer>
+
+  <script type="module">
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfVCzrNcCfhAUp9EONWptvpKNOA8lZoL0",
+      authDomain: "studim8tutoring-bba8e.firebaseapp.com",
+      databaseURL: "https://studim8tutoring-bba8e-default-rtdb.firebaseio.com",
+      projectId: "studim8tutoring-bba8e",
+      storageBucket: "studim8tutoring-bba8e.firebasestorage.app",
+      messagingSenderId: "408589098560",
+      appId: "1:408589098560:web:c3231011730217b3f089a5",
+      measurementId: "G-3839D00B6F"
+    };
+
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+    const waitEl = document.getElementById("admin-entry-wait");
+    const deniedEl = document.getElementById("admin-entry-denied");
+    const chooserEl = document.getElementById("admin-entry-chooser");
+
+    async function route(user) {
+      if (!user) {
+        const next = encodeURIComponent("admin-entry.html");
+        window.location.replace(`login.html?next=${next}`);
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const role = snap.exists() ? String(snap.data().role || "").trim().toLowerCase() : "";
+        if (role !== "admin") {
+          if (waitEl) waitEl.style.display = "none";
+          if (chooserEl) chooserEl.style.display = "none";
+          if (deniedEl) {
+            deniedEl.style.display = "block";
+            deniedEl.textContent =
+              "This page is for admins only. Redirecting to your dashboard…";
+          }
+          const dest = role === "tutor" ? "tutor.html" : "student.html";
+          setTimeout(() => {
+            window.location.replace(dest);
+          }, 1600);
+          return;
+        }
+        if (waitEl) waitEl.style.display = "none";
+        if (deniedEl) deniedEl.style.display = "none";
+        if (chooserEl) chooserEl.style.display = "block";
+      } catch (e) {
+        console.error(e);
+        if (waitEl) waitEl.textContent = "Could not verify your role. Try again or go home.";
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      route(user);
+    });
+
+    document.getElementById("admin-entry-logout")?.addEventListener("click", () => {
+      signOut(auth).then(() => {
+        window.location.href = "index.html";
+      });
+    });
+  </script>
+</body>
+</html>

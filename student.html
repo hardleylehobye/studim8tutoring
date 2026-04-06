@@ -6,9 +6,10 @@
   <title>Student Dashboard - StudiM8 Tutoring</title>
   <link rel="stylesheet" href="style.css">
   <script type="module">
-    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+    import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
     window.FirebaseModular = {
       initializeApp,
       getApp,
@@ -30,7 +31,10 @@
       getDocs,
       updateDoc,
       deleteDoc,
-      arrayUnion
+      arrayUnion,
+      getFunctions,
+      httpsCallable,
+      connectFunctionsEmulator
     };
   </script>
   <style>
@@ -105,6 +109,7 @@
     </div>
     <ul class="navbar-links">
       <li><a href="index.html">Home</a></li>
+      <li id="student-nav-switch-wrap" style="display:none;"><a href="admin-entry.html">Switch view</a></li>
       <li><a href="student.html">Dashboard</a></li>
       <li><a href="oneonone.html">Book Lesson</a></li>
       <li><a href="login.html?next=student.html" id="google-login-btn" class="nav-login-link">Log in</a></li>
@@ -193,19 +198,12 @@
     <div class="modal-content">
       <h3>Complete Payment</h3>
       <p id="payment-details"></p>
-      <div class="payment-methods">
-        <div class="payment-option" data-method="card">
-          <h4>Credit/Debit Card</h4>
-          <p>Pay with Visa, Mastercard, etc.</p>
-        </div>
-        <div class="payment-option" data-method="eft">
-          <h4>EFT Transfer</h4>
-          <p>Direct bank transfer</p>
-        </div>
-      </div>
+      <p style="color:#555;font-size:0.95rem;line-height:1.5;margin:0 0 12px;">
+        You will go to <strong>PayFast</strong> (South Africa) to pay securely by card or Instant EFT. StudiM8 never sees your card number.
+      </p>
       <div style="text-align: center; margin-top: 20px;">
         <button onclick="closePaymentModal()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; margin-right: 10px; cursor: pointer;">Cancel</button>
-        <button onclick="processPayment()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Process Payment</button>
+        <button type="button" id="payfast-submit-btn" onclick="processPayment()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Pay with PayFast</button>
       </div>
     </div>
   </div>
@@ -221,9 +219,12 @@
       appId: "1:408589098560:web:c3231011730217b3f089a5",
       measurementId: "G-3839D00B6F"
     };
+    const FUNCTIONS_REGION = 'europe-west1';
+
     let app;
     let auth;
     let db;
+    let studentFunctions = null;
     let studentAuthRedirectTimer = null;
 
     const studentConfig = { currentUser: null, sessions: [], payments: [] };
@@ -244,8 +245,89 @@
         : window.FirebaseModular.initializeApp(firebaseConfig);
       auth = window.FirebaseModular.getAuth(app);
       db = window.FirebaseModular.getFirestore(app);
+      studentFunctions = window.FirebaseModular.getFunctions(app, FUNCTIONS_REGION);
+      const emu = new URLSearchParams(window.location.search).get('useFunctionsEmulator');
+      if (
+        emu === '1' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ) {
+        try {
+          window.FirebaseModular.connectFunctionsEmulator(studentFunctions, '127.0.0.1', 5001);
+        } catch (e) {
+          console.warn('Functions emulator already connected or unavailable', e);
+        }
+      }
       window.FirebaseModular.setPersistence(auth, window.FirebaseModular.browserLocalPersistence).catch(() => {});
+      handlePayfastReturnParams();
       checkAuthState();
+    }
+
+    function handlePayfastReturnParams() {
+      const p = new URLSearchParams(window.location.search);
+      const pf = p.get('payfast');
+      if (!pf) return;
+      const path = window.location.pathname || '';
+      window.history.replaceState({}, '', path);
+      if (pf === 'return') {
+        alert(
+          'Thanks. If PayFast completed successfully, your dashboard will show Paid within a minute. Otherwise use Pay again or contact StudiM8.'
+        );
+      } else if (pf === 'cancel') {
+        alert('Payment was cancelled. You can try again when you are ready.');
+      }
+    }
+
+    function timeStringToMinutesStudent(time24) {
+      if (!time24) return null;
+      const [hh, mm] = String(time24).split(':');
+      const h = parseInt(hh, 10);
+      const m = parseInt(mm, 10);
+      if (Number.isNaN(h) || Number.isNaN(m)) return null;
+      return h * 60 + m;
+    }
+
+    function sessionDurationHoursStudent(session) {
+      if (!session) return 0;
+      if (session.startTime && session.endTime && session.preferredDate) {
+        const startMin = timeStringToMinutesStudent(session.startTime);
+        const endMin = timeStringToMinutesStudent(session.endTime);
+        if (startMin == null || endMin == null) return 0;
+        const diff = endMin - startMin;
+        return diff > 0 ? diff / 60 : 0;
+      }
+      if (session.lessonStartDate && session.lessonEndDate) {
+        const a = new Date(session.lessonStartDate).getTime();
+        const b = new Date(session.lessonEndDate).getTime();
+        if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+        const diffMs = b - a;
+        return diffMs > 0 ? diffMs / (1000 * 60 * 60) : 0;
+      }
+      return 0;
+    }
+
+    function estimateAmountZarStudent(session) {
+      if (!session) return null;
+      const custom = session.paymentAmountZar;
+      if (custom != null && custom !== '') {
+        const n = Number(custom);
+        if (Number.isFinite(n) && n > 0) return Math.round(n * 100) / 100;
+      }
+      const hourly = {
+        'One-on-One In Person': 400,
+        'One-on-One Online': 300,
+      };
+      const flat = {
+        'Explanatory Videos': 150,
+        'Personalised Notes': 150,
+      };
+      const s = session.serviceType || '';
+      if (flat[s] != null) return flat[s];
+      const hr = hourly[s];
+      if (hr != null) {
+        const h = sessionDurationHoursStudent(session);
+        if (h > 0) return Math.round(hr * h * 100) / 100;
+      }
+      return null;
     }
 
     function checkAuthState() {
@@ -260,9 +342,10 @@
               window.FirebaseModular.doc(db, 'users', user.uid)
             );
             const role = userDoc.exists() ? userDoc.data().role : 'student';
-            if (role === 'admin') {
-              window.location.replace('admin.html');
-              return;
+            const switchWrap = document.getElementById('student-nav-switch-wrap');
+            if (switchWrap) {
+              switchWrap.style.display =
+                String(role).trim().toLowerCase() === 'admin' ? 'list-item' : 'none';
             }
             if (role === 'tutor') {
               window.location.replace('tutor.html');
@@ -684,10 +767,15 @@
         if (!phone && !wa && session.tutorId) {
           tutorContactLines = '<br><em style="color:#666;">Tutor number not on file yet — ask StudiM8 or refresh after admin syncs.</em>';
         }
+        const est = estimateAmountZarStudent(session);
+        const amountLine =
+          est != null
+            ? `<strong>Amount (due):</strong> R${est.toFixed(2)} <span style="color:#666;font-size:0.9rem;">(confirmed at PayFast checkout)</span>`
+            : '<strong>Amount:</strong> set at checkout';
         document.getElementById('payment-details').innerHTML = `
           <strong>Session:</strong> ${escapeHtmlStudent(session.subject)}<br>
           <strong>Tutor:</strong> ${escapeHtmlStudent(session.tutorName || '')}${tutorContactLines}<br>
-          <strong>Amount:</strong> R250 per hour<br>
+          ${amountLine}<br>
           <strong>Status:</strong> ${escapeHtmlStudent(session.status)}
         `;
         document.getElementById('payment-modal').style.display = 'block';
@@ -703,20 +791,61 @@
 
     async function processPayment() {
       const sessionId = document.getElementById('payment-modal').dataset.sessionId;
-      
+      const payBtn = document.getElementById('payfast-submit-btn');
+
+      if (!sessionId || !auth) {
+        alert('Sign in and open Pay again.');
+        return;
+      }
+      if (!studentFunctions) {
+        alert('Payments are still loading. Wait a moment and try again.');
+        return;
+      }
+
+      const prevText = payBtn ? payBtn.textContent : '';
       try {
-        await window.FirebaseModular.updateDoc(window.FirebaseModular.doc(db, 'sessions', sessionId), {
-          paid: true,
-          paidAt: new Date().toISOString(),
-          paymentMethod: 'card' // or 'eft' based on selection
-        });
-        
-        closePaymentModal();
-        await loadStudentData(); // Refresh data
-        alert('Payment processed successfully!');
+        if (payBtn) {
+          payBtn.disabled = true;
+          payBtn.textContent = 'Starting PayFast…';
+        }
+
+        const payfastInit = window.FirebaseModular.httpsCallable(studentFunctions, 'payfastInit');
+        const result = await payfastInit({ sessionId });
+        const payload = result.data;
+        if (!payload || !payload.actionUrl || !payload.fields) {
+          throw new Error('Invalid response from payment service.');
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = payload.actionUrl;
+        for (const [key, val] of Object.entries(payload.fields)) {
+          const inp = document.createElement('input');
+          inp.type = 'hidden';
+          inp.name = key;
+          inp.value = val == null ? '' : String(val);
+          form.appendChild(inp);
+        }
+        document.body.appendChild(form);
+        form.submit();
       } catch (error) {
-        console.error('Error processing payment:', error);
-        alert('Error processing payment. Please try again.');
+        console.error('PayFast start error:', error);
+        const code = error && error.code;
+        const msg =
+          error && error.message
+            ? error.message
+            : 'Could not start payment. Try again or contact StudiM8.';
+        if (code === 'functions/unavailable' || code === 'functions/internal') {
+          alert(
+            'Payment service is not available yet. If you are on http://localhost, the Cloud Function may need public Invoker (Google Cloud Console → payfastInit → Permissions → allUsers: Cloud Functions Invoker), or run the emulator and open this page with ?useFunctionsEmulator=1'
+          );
+        } else {
+          alert(msg);
+        }
+        if (payBtn) {
+          payBtn.disabled = false;
+          payBtn.textContent = prevText || 'Pay with PayFast';
+        }
       }
     }
 
@@ -729,13 +858,6 @@
       window.FirebaseModular.signOut(auth).then(() => window.location.href = 'index.html');
     });
 
-    // Payment method selection
-    document.querySelectorAll('.payment-option').forEach(option => {
-      option.addEventListener('click', function() {
-        document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
-        this.classList.add('selected');
-      });
-    });
   </script>
 </body>
 </html>

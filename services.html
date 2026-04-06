@@ -287,7 +287,7 @@
       function setDashboardHref(uid) {
         FM.getDoc(FM.doc(db, 'users', uid)).then(function (snap) {
           var role = snap.exists() ? snap.data().role : 'student';
-          var url = role === 'tutor' ? 'tutor.html' : role === 'admin' ? 'admin.html' : 'student.html';
+          var url = role === 'tutor' ? 'tutor.html' : role === 'admin' ? 'admin-entry.html' : 'student.html';
           if (dashLink) dashLink.href = url;
         }).catch(function () {
           if (dashLink) dashLink.href = 'student.html';

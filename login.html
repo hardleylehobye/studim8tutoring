@@ -81,7 +81,7 @@
         const userDoc = await getDoc(doc(db, "users", uid));
         const role = userDoc.exists() ? userDoc.data().role : "student";
         if (role === "tutor") return "tutor.html";
-        if (role === "admin") return "admin.html";
+        if (role === "admin") return "admin-entry.html";
         return "student.html";
       } catch {
         return "student.html";

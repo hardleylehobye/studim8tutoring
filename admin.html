@@ -10,7 +10,7 @@
   <script type="module">
     import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
     window.FirebaseModular = {
       initializeApp,
       getApp,
@@ -29,7 +29,8 @@
       collection,
       getDocs,
       updateDoc,
-      deleteDoc
+      deleteDoc,
+      runTransaction
     };
   </script>
   <style>
@@ -181,6 +182,7 @@
     </div>
     <ul class="navbar-links">
       <li><a href="index.html">Home</a></li>
+      <li><a href="admin-entry.html">Switch view</a></li>
       <li><a href="admin.html">Admin Panel</a></li>
       <li><button id="logout-btn" class="logout-btn">Logout</button></li>
     </ul>
@@ -654,6 +656,20 @@
       return h * 60 + m;
     }
 
+    /** Sessions with an assigned tutor that reserve calendar time (overlaps blocked for other bookings). */
+    const TUTOR_OCCUPANCY_STATUSES = new Set(['pending_payment', 'scheduled', 'confirmed']);
+
+    function tutorDayOccupancyDocId(tutorId, preferredDate) {
+      return `${tutorId}_${preferredDate}`;
+    }
+
+    /** Half-open [start, end) in minutes — true if ranges intersect. */
+    function lessonMinuteRangesOverlap(aStart, aEnd, bStart, bEnd) {
+      if (aStart == null || aEnd == null || bStart == null || bEnd == null) return false;
+      if (aEnd <= aStart || bEnd <= bStart) return false;
+      return aStart < bEnd && bStart < aEnd;
+    }
+
     function sessionDurationHours(session) {
       if (!session) return 0;
       // New format: preferredDate + startTime + endTime
@@ -825,23 +841,98 @@
 
       if (!confirm('Verify this booking and allow the student to pay?')) return;
 
+      const FM = window.FirebaseModular;
+
       try {
         const contact = await fetchTutorContactFromProfile(tutorId);
-        await window.FirebaseModular.updateDoc(window.FirebaseModular.doc(db, 'sessions', sessionId), {
-          status: 'pending_payment',
-          tutorId: tutorId || null,
-          tutorName: tutorName,
-          tutorPhone: contact.tutorPhone,
-          tutorWhatsAppDigits: contact.tutorWhatsAppDigits,
-          tutorContactSyncedAt: new Date().toISOString(),
-          verifiedAt: new Date().toISOString(),
-          verifiedByAdminId: auth.currentUser.uid
+
+        await FM.runTransaction(db, async (transaction) => {
+          const sessionRef = FM.doc(db, 'sessions', sessionId);
+          const sessionSnap = await transaction.get(sessionRef);
+          if (!sessionSnap.exists()) {
+            throw Object.assign(new Error('Booking not found.'), { code: 'not-found' });
+          }
+          const sData = sessionSnap.data();
+          const st = sData.status || '';
+          if (st !== 'pending_verification' && st !== 'pending') {
+            throw Object.assign(new Error('ALREADY_VERIFIED'), { code: 'already-verified' });
+          }
+
+          const useTutorOccupancy =
+            !!tutorId &&
+            sData.preferredDate &&
+            sData.startTime &&
+            sData.endTime;
+
+          if (useTutorOccupancy) {
+            const occRef = FM.doc(db, 'tutorDayOccupancy', tutorDayOccupancyDocId(tutorId, sData.preferredDate));
+            const occSnap = await transaction.get(occRef);
+            let intervals = occSnap.exists() ? [...(occSnap.data().intervals || [])] : [];
+            intervals = intervals.filter((iv) => iv && iv.sessionId !== sessionId);
+
+            const pruned = [];
+            for (const iv of intervals) {
+              if (!iv || !iv.sessionId) continue;
+              const otherRef = FM.doc(db, 'sessions', iv.sessionId);
+              const otherSnap = await transaction.get(otherRef);
+              if (!otherSnap.exists()) continue;
+              const o = otherSnap.data();
+              if (o.tutorId !== tutorId) continue;
+              if (!TUTOR_OCCUPANCY_STATUSES.has(o.status || '')) continue;
+              if (o.preferredDate !== sData.preferredDate) continue;
+              const sm = timeStringToMinutes(o.startTime);
+              const em = timeStringToMinutes(o.endTime);
+              if (sm == null || em == null) continue;
+              if (sm !== iv.startMin || em !== iv.endMin) continue;
+              pruned.push(iv);
+            }
+            intervals = pruned;
+
+            const newStart = timeStringToMinutes(sData.startTime);
+            const newEnd = timeStringToMinutes(sData.endTime);
+            if (newStart == null || newEnd == null || newEnd <= newStart) {
+              throw Object.assign(new Error('Invalid lesson times.'), { code: 'invalid-times' });
+            }
+            for (const iv of intervals) {
+              if (lessonMinuteRangesOverlap(newStart, newEnd, iv.startMin, iv.endMin)) {
+                throw Object.assign(new Error('TUTOR_SLOT_TAKEN'), { code: 'tutor-slot-taken' });
+              }
+            }
+            intervals.push({ sessionId, startMin: newStart, endMin: newEnd });
+            transaction.set(
+              occRef,
+              { tutorId, preferredDate: sData.preferredDate, intervals, updatedAt: new Date().toISOString() },
+              { merge: true }
+            );
+          }
+
+          transaction.update(sessionRef, {
+            status: 'pending_payment',
+            tutorId: tutorId || null,
+            tutorName: tutorName,
+            tutorPhone: contact.tutorPhone,
+            tutorWhatsAppDigits: contact.tutorWhatsAppDigits,
+            tutorContactSyncedAt: new Date().toISOString(),
+            verifiedAt: new Date().toISOString(),
+            verifiedByAdminId: auth.currentUser.uid
+          });
         });
+
         await loadBookings();
         alert('Verified. The student will see Pending payment, tutor phone (if on file), and can complete payment.');
       } catch (err) {
         console.error(err);
-        alert('Could not update this booking. Check Firestore rules.');
+        const code = err && err.code;
+        if (code === 'tutor-slot-taken' || (err && err.message === 'TUTOR_SLOT_TAKEN')) {
+          alert(
+            'That tutor is already booked for an overlapping lesson at this time. Choose another tutor or ask the student to change the date or time.'
+          );
+        } else if (code === 'already-verified' || err.message === 'ALREADY_VERIFIED') {
+          alert('This booking was already verified. Refresh the admin page.');
+          await loadBookings();
+        } else {
+          alert('Could not update this booking. Check Firestore rules or try again.');
+        }
       }
     }
 

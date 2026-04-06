@@ -252,6 +252,7 @@
     </div>
     <ul class="navbar-links">
       <li><a href="index.html">Home</a></li>
+      <li id="tutor-nav-switch-wrap" style="display:none;"><a href="admin-entry.html">Switch view</a></li>
       <li><a href="tutor.html">Dashboard</a></li>
       <li><button id="logout-btn" class="logout-btn">Logout</button></li>
     </ul>
@@ -776,13 +777,22 @@
             const userDoc = await FM.getDoc(FM.doc(db, 'users', user.uid));
             const userData = userDoc.exists() ? userDoc.data() : null;
 
-            if (!userData || userData.role !== 'tutor') {
+            const roleNorm = userData && userData.role != null
+              ? String(userData.role).trim().toLowerCase()
+              : '';
+            const canUseTutorDash = roleNorm === 'tutor' || roleNorm === 'admin';
+            if (!userData || !canUseTutorDash) {
               const r = userData && userData.role;
               let dest = 'student.html';
-              if (r === 'admin') dest = 'admin.html';
+              if (r && String(r).trim().toLowerCase() === 'admin') dest = 'admin-entry.html';
               else if (r && r !== 'student') dest = 'index.html';
               window.location.replace(dest);
               return;
+            }
+
+            const switchTutor = document.getElementById('tutor-nav-switch-wrap');
+            if (switchTutor) {
+              switchTutor.style.display = roleNorm === 'admin' ? 'list-item' : 'none';
             }
 
             document.getElementById('tutor-welcome').textContent = `Welcome, ${user.displayName}`;
